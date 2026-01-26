@@ -1,16 +1,12 @@
 {
   "builds": [
     {
-      "src": "backend/api/*.py",
-      "use": "@vercel/python"
+      "src": "frontend/package.json",
+      "use": "@vercel/next"
     },
     {
       "src": "backend/main.py",
       "use": "@vercel/python"
-    },
-    {
-      "src": "frontend/package.json",
-      "use": "@vercel/next"
     }
   ],
   "routes": [
@@ -29,6 +25,5 @@
     "OPENBLAS_NUM_THREADS": "1",
     "NUMEXPR_NUM_THREADS": "1",
     "NEXT_PUBLIC_API_URL": "/api"
-  },
-  "regions": ["iad1"]
+  }
 }
