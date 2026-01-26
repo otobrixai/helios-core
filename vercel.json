@@ -5,6 +5,10 @@
       "use": "@vercel/python"
     },
     {
+      "src": "backend/main.py",
+      "use": "@vercel/python"
+    },
+    {
       "src": "frontend/package.json",
       "use": "@vercel/next"
     }
@@ -12,7 +16,7 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "backend/api/main.py"
+      "dest": "backend/main.py"
     },
     {
       "src": "/(.*)",
