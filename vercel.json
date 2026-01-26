@@ -1,19 +1,23 @@
 {
-  "functions": {
-    "backend/main.py": {
-      "runtime": "python3.10",
-      "memory": 3008,
-      "maxDuration": 120
+  "version": 2,
+  "builds": [
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/next"
+    },
+    {
+      "src": "backend/main.py",
+      "use": "@vercel/python"
     }
-  },
+  ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "backend/main.py"
+      "dest": "/backend/main.py"
     },
     {
       "src": "/(.*)",
-      "dest": "/"
+      "dest": "/frontend/$1"
     }
   ],
   "env": {
