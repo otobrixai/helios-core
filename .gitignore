@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+.pytest_cache/
+.benchmarks/
+.coverage
+htmlcov/
+*.db
+!data/helios_core.db
+
+# Node
+node_modules/
+.next/
+out/
+build/
+.env*
+!.env.example
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary/Project specific
+.tmp/
+debug_upload.py
+findings.md
+gemini.md
+progress.md
+task_plan.md
+C:\Users\mdmho\.gemini\antigravity\brain\
