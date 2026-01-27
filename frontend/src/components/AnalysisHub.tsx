@@ -10,6 +10,8 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
+  ScatterChart,
+  Scatter,
 } from "recharts";
 import { useScientificPlotData, PlotIntegrityBadge } from "@/hooks/useScientificPlotData";
 import { GPUChartContainer } from "./GPUChartContainer";
@@ -48,12 +50,21 @@ export function AnalysisHub({
   const plotData = useMemo(() => {
     if (!voltage || !current) return [];
 
-    return voltage.map((v, i) => ({
-      voltage: v,
-      current: current[i] * 1000, // Display as mA/cm2
-      power: v * current[i] * 1000,
-    }));
-  }, [voltage, current]);
+    const area = constants.area || 1.0;
+
+    return voltage.map((v, i) => {
+      const j_measured = (current[i] / area) * 1000;
+      const fit_j = result?.fit_current ? (result.fit_current[i] / area) * 1000 : undefined;
+
+      return {
+        voltage: v,
+        current: j_measured, // Display as mA/cm2
+        fit_current: fit_j,
+        power: v * j_measured,
+        residual: fit_j !== undefined ? j_measured - fit_j : undefined,
+      };
+    });
+  }, [voltage, current, result, constants.area]);
 
   // Apply Scientific Data Decimation
   const { displayData, metadata } = useScientificPlotData(plotData, {
@@ -191,13 +202,44 @@ export function AnalysisHub({
           </div>
         </div>
 
-        {/* Residuals Sub-Plot placeholder */}
-        <div className="flex-1 min-h-[200px] glass-card p-4 relative">
+        <div className="flex-1 min-h-[220px] glass-card p-4 relative">
           <h3 className="absolute top-2 left-4 text-[10px] font-semibold text-(--text-secondary) uppercase tracking-wider z-10">
-            Fit Residuals
+            Fit Residuals (ΔJ)
           </h3>
-          <div className="w-full h-full min-h-[160px] flex items-center justify-center opacity-30 text-xs">
-            Residual analysis decoupled for stateless session
+          <div className="w-full h-full min-h-[180px]">
+            {result ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <ScatterChart margin={{ top: 20, right: 30, left: 10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-muted)" vertical={false} />
+                  <XAxis 
+                    dataKey="voltage" 
+                    type="number" 
+                    hide 
+                  />
+                  <YAxis 
+                    type="number"
+                    tick={{ fill: "var(--text-muted)", fontSize: 8 }}
+                    axisLine={{ stroke: "var(--border-default)" }}
+                    label={{ value: "ΔJ", angle: -90, position: "insideLeft", fill: "var(--text-secondary)", fontSize: 8 }}
+                  />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-default)", fontSize: "10px" }}
+                  />
+                  <ReferenceLine y={0} stroke="var(--text-muted)" strokeWidth={1} />
+                  <Scatter 
+                    data={displayData} 
+                    fill={accentColor} 
+                    line={false}
+                    shape="circle"
+                    dataKey="residual"
+                  />
+                </ScatterChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center opacity-30 text-[10px] uppercase tracking-widest font-bold">
+                Run Analysis for Residuals
+              </div>
+            )}
           </div>
         </div>
 

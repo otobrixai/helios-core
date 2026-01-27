@@ -41,6 +41,7 @@ export interface AnalysisSessionData {
   mode: AnalysisMode;
   modelType: ModelType;
   results?: AnalysisResult;
+  fit_current?: number[];
   resultHash?: string;
   errorMessage?: string;
   timestamp: string;

@@ -211,7 +211,8 @@ async def analyze_stateless(request: StatelessAnalyzeRequest):
                 "pce": analysis.parameters.pce,
                 "r_s": analysis.parameters.r_s,
                 "r_sh": analysis.parameters.r_sh,
-                "n_ideality": analysis.parameters.n_ideality
+                "n_ideality": analysis.parameters.n_ideality,
+                "fit_current": I_fitted.tolist() if 'I_fitted' in locals() else None
             })
             
         return res

@@ -8,6 +8,7 @@ interface DataPoint {
   power?: number;
   fit_current?: number;
   fit_power?: number;
+  residual?: number;
 }
 
 interface ScientificPlotConfig {
