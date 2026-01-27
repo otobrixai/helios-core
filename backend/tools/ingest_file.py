@@ -195,22 +195,23 @@ def detect_column_mapping(df: pd.DataFrame) -> ColumnMap:
     # Heuristic for headerless or incorrectly labeled files
     # If the unit is "A" but the current values are large (> 0.5), 
     # it is almost certainly mA (as 0.5 A is enormous for most PV lab cells).
+    # Specifically, it is often current density in mA/cm2.
     if current_unit.lower() == "a":
         try:
             # We check the absolute max current in the detected column
             max_i = df[current_col].abs().max()
             if max_i > 0.5:
-                current_unit = "mA"
+                current_unit = "mA/cm2"
         except Exception:
             pass
     
     conversions = []
     
     # Log unit conversions
-    if current_unit.lower() == "ma":
-        conversions.append("Current: mA → A (÷1000)")
-    if current_unit.lower() == "ua":
-        conversions.append("Current: µA → A (÷1e6)")
+    if "ma" in current_unit.lower():
+        conversions.append(f"Current: {current_unit} -> A (÷1000)")
+    if "ua" in current_unit.lower():
+        conversions.append(f"Current: {current_unit} -> A (÷1e6)")
     
     return ColumnMap(
         voltage_column=voltage_col,
@@ -346,6 +347,37 @@ def ingest_file(
     # Step 5: Detect hardware
     hardware_profile, low_confidence = detect_hardware_profile(content_str, filename)
     
+    # If metadata area is default (1.0), try to extract it from the file content
+    if metadata.cell_area_cm2 == 1.0:
+        try:
+            # Look for common area patterns in the first 2000 chars
+            area_patterns = [
+                r"device\s*area\s*[:=\t,]\s*([\d\.]+)",
+                r"area\s*\(?cm2\)?\s*[:=\t,]\s*([\d\.]+)",
+            ]
+            for pattern in area_patterns:
+                match = re.search(pattern, content_str[:2000], re.IGNORECASE)
+                if match:
+                    metadata.cell_area_cm2 = float(match.group(1))
+                    print(f"[Ingest] Extracted device area from header: {metadata.cell_area_cm2} cm2")
+                    break
+            
+            # Special case for tabular metadata like SA71_light__1.dat
+            lines = content_str.split('\n')
+            if len(lines) > 2:
+                headers = [h.strip().lower() for h in re.split(r'[\t,]', lines[0])]
+                if "device area" in headers:
+                    idx = headers.index("device area")
+                    values = re.split(r'[\t,]', lines[1])
+                    if len(values) > idx:
+                        try:
+                            metadata.cell_area_cm2 = float(values[idx].strip())
+                            print(f"[Ingest] Extracted device area from tabular header: {metadata.cell_area_cm2} cm2")
+                        except ValueError:
+                            pass
+        except Exception as e:
+            print(f"[Ingest] Warning: Failed to extract area from header: {e}")
+
     # Parse into DataFrame
     df = _parse_to_dataframe(file_content, filename, encoding)
     
@@ -376,7 +408,7 @@ def ingest_file(
             voltage_unit="V",
             current_unit="A",
         )
-    
+
     # Step 4: Create ImportRecord
     import_record = ImportRecord(
         source_filename=filename,
@@ -598,9 +630,18 @@ def extract_iv_data(
     
     # Apply unit conversions if needed
     current_unit = column_map.current_unit.lower()
-    if current_unit == "ma":
+    
+    # Check for density units (e.g., mA/cm2, A/cm2)
+    is_density = "/cm" in current_unit or "cm^2" in current_unit
+    
+    if "ma" in current_unit:
         I = I / 1000.0
-    elif current_unit == "ua":
+    elif "ua" in current_unit:
         I = I / 1e6
+    
+    # If density was detected, convert to absolute Amperes using the metadata area.
+    # This allows the solver to operate in absolute physical units (V, A, Ohms).
+    if is_density:
+        I = I * measurement.metadata.cell_area_cm2
     
     return V, I

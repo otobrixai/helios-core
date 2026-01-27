@@ -207,10 +207,23 @@ def solve_iv_curve(
     
     # Stage A: Global Optimization
     print(f"  [DEBUG] Starting Global Opt (Mode: {mode.value})...", flush=True)
+    
+    # Per SOP_PHYSICS_ENGINE: Detect sign convention.
+    # Solar cell current in the power region (V > 0) is often negative in "sink" convention.
+    # The diode equations assume I is the generated current (positive).
+    potential_power_mask = (V > 0) & (V < 0.9 * np.max(V))
+    if np.any(potential_power_mask) and np.median(I[potential_power_mask]) < 0:
+        print(f"  [DEBUG] Negative current convention detected. Flipping for fitting.", flush=True)
+        I_fit = -I
+        sign_multiplier = -1.0
+    else:
+        I_fit = I
+        sign_multiplier = 1.0
+
     de_result = differential_evolution(
         cost_func,
         bounds=bounds,
-        args=(V, I),
+        args=(V, I_fit),
         **de_config,
     )
     print(f"  [DEBUG] Global Opt Done. Success: {de_result.success}", flush=True)
@@ -223,7 +236,7 @@ def solve_iv_curve(
     lm_result = least_squares(
         residual_func,
         x0=de_result.x,
-        args=(V, I),
+        args=(V, I_fit),
         bounds=(lb, ub),
         method="trf",
         **{k.replace("lm_", ""): v for k, v in LEVENBERG_MARQUARDT_CONFIG.items() 
