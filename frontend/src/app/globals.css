@@ -1,0 +1,190 @@
+@import "tailwindcss";
+
+:root {
+  /* Helios Core Dark Lab Mode Palette */
+  --bg-primary: #0d1117;
+  --bg-secondary: #161b22;
+  --bg-tertiary: #21262d;
+  --bg-card: #1c2128;
+
+  /* Accent Colors */
+  --accent-cyan: #00d9ff;
+  --accent-green: #00ff88;
+  --accent-gold: #ffc107;
+  --accent-amber: #ff9800;
+  --accent-red: #ff4757;
+
+  /* Text */
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted: #6e7681;
+
+  /* Borders */
+  --border-default: #30363d;
+  --border-muted: #21262d;
+
+  /* Mode Colors */
+  --mode-exploration: #00d9ff;
+  --mode-reference: #ffc107;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Utility Classes */
+.glass-card {
+  background: rgba(28, 33, 40, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+}
+
+.neon-glow-cyan {
+  box-shadow: 0 0 20px rgba(0, 217, 255, 0.3);
+}
+
+.neon-glow-green {
+  box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+}
+
+.neon-glow-gold {
+  box-shadow: 0 0 20px rgba(255, 193, 7, 0.3);
+}
+
+/* Mode Toggle */
+.mode-exploration {
+  --mode-color: var(--mode-exploration);
+}
+
+.mode-reference {
+  --mode-color: var(--mode-reference);
+}
+
+/* Chart Styling */
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: var(--border-muted);
+  stroke-opacity: 0.5;
+}
+
+.recharts-text {
+  fill: var(--text-secondary);
+  font-size: 11px;
+}
+
+/* Publication Lock Badge */
+.publication-badge {
+  background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+  color: #000;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Parameter Cards */
+.metric-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 12px 14px;
+  transition: all 0.2s ease;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 80px;
+}
+
+.metric-card:hover {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 12px rgba(0, 217, 255, 0.15);
+}
+
+.metric-value {
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-cyan);
+  white-space: nowrap;
+  letter-spacing: -0.02em;
+}
+
+.metric-label {
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metric-unit {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+
+/* Warning States */
+.warning-amber {
+  color: var(--accent-amber);
+  border-color: var(--accent-amber);
+}
+
+.warning-red {
+  color: var(--accent-red);
+  border-color: var(--accent-red);
+}
+
+/* Recharts Fixes */
+.recharts-responsive-container {
+  min-height: 200px;
+  min-width: 0;
+}
+
+/* Flex Scroll Fix */
+.flex-1.overflow-y-auto {
+  min-height: 0;
+}
