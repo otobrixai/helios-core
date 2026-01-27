@@ -164,34 +164,53 @@ async def analyze_stateless(request: StatelessAnalyzeRequest):
         
         # Generate Diagnostics
         diagnostic_report = None
+        I_fitted = None
         if analysis.status == AnalysisStatus.VALID and analysis.parameters:
             p = analysis.parameters
-            # Reconstruct fitted curve for residuals
-            I_fitted = one_diode_equation(
-                V=V,
-                I_ph=p.i_ph,
-                I_0=p.i_0,
-                n=p.n_ideality,
-                R_s=p.r_s / request.area_cm2,
-                R_sh=p.r_sh / request.area_cm2,
-                T_k=request.temperature_k
-            )
-            
-            report = DiagnosticReport(analysis_id="stateless", mode=request.mode)
-            report.analyze_residuals(voltage=V, measured=I_measured, fitted=I_fitted)
-            
-            diag_params = {
-                'n': p.n_ideality, 
-                'Rs': p.r_s, 
-                'Rsh': p.r_sh
-            }
-            bounds = {
-                'n': (0.8, 2.5), 
-                'Rs': (0, 1000), 
-                'Rsh': (1.0, 1e9)
-            }
-            report.analyze_boundary_stress(diag_params, bounds)
-            diagnostic_report = report.generate_report()
+            try:
+                # Reconstruct fitted curve for residuals based on model type
+                if analysis.solver_config.model_type == ModelType.TWO_DIODE:
+                    from backend.tools.solve_iv_curve import two_diode_equation
+                    I_fitted = two_diode_equation(
+                        V=V,
+                        I_ph=p.i_ph or 0.0,
+                        I_01=p.i_0 or 1e-12,
+                        n1=p.n_ideality or 1.0,
+                        I_02=getattr(p, 'i_02', 1e-12),
+                        n2=getattr(p, 'n2_ideality', 2.0),
+                        R_s=p.r_s / request.area_cm2,
+                        R_sh=p.r_sh / request.area_cm2,
+                        T_k=request.temperature_k
+                    )
+                else:
+                    I_fitted = one_diode_equation(
+                        V=V,
+                        I_ph=p.i_ph or 0.0,
+                        I_0=p.i_0 or 1e-12,
+                        n=p.n_ideality or 1.0,
+                        R_s=p.r_s / request.area_cm2,
+                        R_sh=p.r_sh / request.area_cm2,
+                        T_k=request.temperature_k
+                    )
+                
+                report = DiagnosticReport(analysis_id="stateless", mode=request.mode)
+                report.analyze_residuals(voltage=V, measured=I_measured, fitted=I_fitted)
+                
+                diag_params = {
+                    'n': p.n_ideality, 
+                    'Rs': p.r_s, 
+                    'Rsh': p.r_sh
+                }
+                bounds = {
+                    'n': (0.8, 2.5), 
+                    'Rs': (0, 1000), 
+                    'Rsh': (1.0, 1e9)
+                }
+                report.analyze_boundary_stress(diag_params, bounds)
+                diagnostic_report = report.generate_report()
+            except Exception as e:
+                print(f"Diagnostic generation failed: {e}")
+                # We still want to return the results even if diagnostics fail
 
         # Prepare response
         res = {
@@ -212,7 +231,7 @@ async def analyze_stateless(request: StatelessAnalyzeRequest):
                 "r_s": analysis.parameters.r_s,
                 "r_sh": analysis.parameters.r_sh,
                 "n_ideality": analysis.parameters.n_ideality,
-                "fit_current": I_fitted.tolist() if 'I_fitted' in locals() else None
+                "fit_current": I_fitted.tolist() if I_fitted is not None else None
             })
             
         return res
