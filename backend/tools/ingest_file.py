@@ -191,6 +191,18 @@ def detect_column_mapping(df: pd.DataFrame) -> ColumnMap:
     # Detect units from column names
     voltage_unit = _extract_unit(voltage_col, default="V")
     current_unit = _extract_unit(current_col, default="A")
+
+    # Heuristic for headerless or incorrectly labeled files
+    # If the unit is "A" but the current values are large (> 0.5), 
+    # it is almost certainly mA (as 0.5 A is enormous for most PV lab cells).
+    if current_unit.lower() == "a":
+        try:
+            # We check the absolute max current in the detected column
+            max_i = df[current_col].abs().max()
+            if max_i > 0.5:
+                current_unit = "mA"
+        except Exception:
+            pass
     
     conversions = []
     
@@ -450,10 +462,14 @@ def _parse_to_dataframe(
     """Parse file content to DataFrame based on extension."""
     ext = Path(filename).suffix.lower()
     
-    if ext in (".csv", ".txt"):
-        # Try common delimiters
-        for sep in [",", "\t", ";", " "]:
+    # Treat common text-based scientific formats as delimited text
+    text_extensions = (".csv", ".txt", ".data", ".dat", ".asc", ".tsv")
+    
+    if ext in text_extensions or ext == "":
+        # Try common delimiters (including pipe for some instruments)
+        for sep in [",", "\t", ";", " ", "|"]:
             try:
+                # First attempt: normal parsing
                 df = pd.read_csv(
                     BytesIO(content),
                     sep=sep,
@@ -473,18 +489,65 @@ def _parse_to_dataframe(
                         )
                         # Name them generically
                         df.columns = [str(i) for i in range(len(df.columns))]
+                    
+                    # Check if we have a hybrid format (metadata rows + data rows)
+                    # If the first data row has many columns but subsequent rows have 2,
+                    # it's likely a summary header followed by raw IV data
+                    if len(df.columns) > 2 and len(df) > 2:
+                        # Check if rows after the first are mostly 2-column
+                        sample_rows = df.iloc[1:min(5, len(df))]
+                        non_null_counts = sample_rows.notna().sum(axis=1)
+                        if non_null_counts.median() <= 2:
+                            # Skip metadata rows and re-parse
+                            lines = content.decode(encoding).split('\n')
+                            # Find first line with exactly 2 tab-separated numeric values
+                            data_start = 0
+                            for i, line in enumerate(lines):
+                                parts = line.strip().split(sep)
+                                if len(parts) == 2 and all(_is_numeric(p) for p in parts):
+                                    data_start = i
+                                    break
+                            
+                            if data_start > 0:
+                                # Re-read from the data start point
+                                data_content = '\n'.join(lines[data_start:]).encode(encoding)
+                                df = pd.read_csv(
+                                    BytesIO(data_content),
+                                    sep=sep,
+                                    encoding=encoding,
+                                    header=None,
+                                    skipinitialspace=True,
+                                )
+                                df.columns = [str(i) for i in range(len(df.columns))]
+                    
                     return df
             except Exception:
                 continue
         
-        raise ValueError(f"Could not parse {filename} as CSV/TXT")
+        raise ValueError(f"Could not parse {filename} with any known delimiter")
     
     elif ext in (".xls", ".xlsx"):
         df = pd.read_excel(BytesIO(content))
         return df
     
     else:
-        raise ValueError(f"Unsupported file extension: {ext}")
+        # For unknown extensions, try treating as text with flexible parsing
+        try:
+            for sep in [",", "\t", ";", " ", "|"]:
+                try:
+                    df = pd.read_csv(
+                        BytesIO(content),
+                        sep=sep,
+                        encoding=encoding,
+                        skipinitialspace=True,
+                    )
+                    if len(df.columns) >= 2:
+                        return df
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        raise ValueError(f"Unsupported file format: {ext}. Please use CSV, TXT, XLS, XLSX, DAT, DATA, or ASC formats.")
 
 
 # =============================================================================

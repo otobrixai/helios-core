@@ -41,7 +41,7 @@ export function FileUploader({ onUpload, isUploading }: FileUploaderProps) {
     >
       <input
         type="file"
-        accept=".csv,.txt,.xls,.xlsx"
+        accept=".csv,.txt,.xls,.xlsx,.data,.dat,.asc,text/*"
         onChange={handleChange}
         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
         disabled={isUploading}
@@ -72,7 +72,7 @@ export function FileUploader({ onUpload, isUploading }: FileUploaderProps) {
             Drop IV file or <span className="text-(--accent-cyan)">browse</span>
           </span>
           <span className="text-xs text-(--text-muted)">
-            CSV, TXT, XLS supported
+            CSV, TXT, XLS, DAT, DATA, ASC supported
           </span>
         </div>
       )}

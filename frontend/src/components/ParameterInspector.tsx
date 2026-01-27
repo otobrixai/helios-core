@@ -26,9 +26,9 @@ function MetricCard({ label, value, unit, warning, isReference, tooltipEquation 
     if (isNaN(val)) {
       displayValue = "—";
     } else if (Math.abs(val) > 10000) {
-      displayValue = val.toExponential(2);
+      displayValue = val.toExponential(4);
     } else {
-      displayValue = val.toFixed(2);
+      displayValue = val.toFixed(4);
     }
   }
   return (
@@ -119,6 +119,18 @@ export function ParameterInspector({
             unit="%"
             isReference={isReference}
             tooltipEquation="\eta = \frac{P_{mpp}}{P_{in}}"
+          />
+          <MetricCard
+            label="Series Res."
+            value={metrics?.r_s}
+            unit="Ω·cm²"
+            isReference={isReference}
+          />
+          <MetricCard
+            label="Shunt Res."
+            value={metrics?.r_sh}
+            unit="Ω·cm²"
+            isReference={isReference}
           />
         </div>
       </div>
