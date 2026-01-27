@@ -108,8 +108,8 @@ export function ParameterInspector({
           />
           <MetricCard
             label="Fill Factor"
-            value={metrics?.ff}
-            unit=""
+            value={metrics?.ff !== undefined ? metrics.ff * 100 : undefined}
+            unit="%"
             isReference={isReference}
             tooltipEquation="FF = \frac{P_{mpp}}{V_{oc} J_{sc}}"
           />

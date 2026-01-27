@@ -262,14 +262,19 @@ def solve_iv_curve(
     except Exception:
         v_oc = abs(float(V[-1]))
     
-    # Power max (MPP): MUST be in the 1st quadrant (V>0, I>0)
-    # Using absolute values for robustness but filtering by quadrant
-    mask = (V >= 0) & (I >= 0)
+    # Power max (MPP): MUST be in the power-producing quadrant (V > 0)
+    # Different systems use different signs for current (+ or - at V=0 is common)
+    v_zero_idx = np.argmin(np.abs(V))
+    jsc_sign = np.sign(I[v_zero_idx]) if abs(I[v_zero_idx]) > 0 else 1.0
+    
+    # Power region: V is between 0 and Voc, and I has same sign as Jsc
+    mask = (V >= 0) & (V <= v_oc * 1.05) & (np.sign(I) == jsc_sign)
+    
     if np.any(mask):
-        P_quadrant = V[mask] * I[mask]
-        p_mpp = float(np.max(P_quadrant))
+        P_vals = np.abs(V[mask] * I[mask])
+        p_mpp = float(np.max(P_vals))
     else:
-        # Fallback to absolute max if no positive quadrant found (e.g. dark curve)
+        # Fallback to absolute max if no power region found
         p_mpp = float(np.max(np.abs(V * I)))
     
     # Fill Factor Calculation (Pmax / (Voc * Isc))

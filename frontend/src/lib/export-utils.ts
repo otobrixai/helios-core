@@ -48,7 +48,7 @@ export async function exportSessionBundle(
 }
 
 function generateResultsSummary(analyses: AnalysisSessionData[]): string {
-  const headers = "AnalysisID,Timestamp,Status,Jsc(mA/cm2),Voc(V),FF,PCE(%),Rs(ohm.cm2),Rsh(ohm.cm2),n";
+  const headers = "AnalysisID,Timestamp,Status,Jsc(mA/cm2),Voc(V),FF(%),PCE(%),Rs(ohm.cm2),Rsh(ohm.cm2),n";
   const rows = analyses.map(a => {
     if (a.status !== 'VALID' || !a.results) {
       return `${a.id},${a.timestamp},${a.status},,,,,,,`;
@@ -60,7 +60,7 @@ function generateResultsSummary(analyses: AnalysisSessionData[]): string {
       a.status,
       r.j_sc?.toFixed(4),
       r.v_oc?.toFixed(4),
-      r.ff?.toFixed(4),
+      (r.ff !== undefined ? r.ff * 100 : 0).toFixed(2),
       r.pce?.toFixed(2),
       r.r_s?.toFixed(4),
       r.r_sh?.toFixed(2),
