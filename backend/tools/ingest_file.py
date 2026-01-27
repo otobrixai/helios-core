@@ -50,6 +50,12 @@ VOLTAGE_PATTERNS = [
 ]
 
 CURRENT_PATTERNS = [
+    r"^current_density\s*\(?a/cm2\)?$",
+    r"^j\s*\(?a/cm2\)?$",
+    r"^current_density\s*\(?ma/cm2\)?$",
+    r"^j\s*\(?ma/cm2\)?$",
+    r"^current_density$",
+    r"^j$",
     r"^current\s*\(?a\)?$",
     r"^i\s*\(?a\)?$",
     r"^current\s*\(?ma\)?$",
@@ -238,10 +244,12 @@ def detect_multi_pixel_columns(df: pd.DataFrame) -> list[tuple[str, str]]:
     
     # Common patterns for multi-pixel files
     pixel_patterns = [
-        (r"v_?(\d+|[a-z])$", r"i_?(\d+|[a-z])$"),  # V1/I1, V2/I2, etc.
-        (r"voltage_?(\d+|[a-z])$", r"current_?(\d+|[a-z])$"),
-        (r"pixel_?(\d+|[a-z])_v$", r"pixel_?(\d+|[a-z])_i$"),
-        (r"pixel_?(\d+|[a-z])_voltage.*$", r"pixel_?(\d+|[a-z])_current.*$"),  # Pixel_A_Voltage...
+        (r"v_?(\d+|[a-z])", r"i_?(\d+|[a-z])"),
+        (r"voltage_?(\d+|[a-z])", r"current_?(\d+|[a-z])"),
+        (r"voltage_?(\d+|[a-z])", r"current_density_?(\d+|[a-z])"),
+        (r"pixel_?(\d+|[a-z])_v", r"pixel_?(\d+|[a-z])_i"),
+        (r"pixel_?(\d+|[a-z])_voltage", r"pixel_?(\d+|[a-z])_current"),
+        (r"pixel_?(\d+|[a-z])_voltage", r"pixel_?(\d+|[a-z])_current_density"),
     ]
     
     pixels = []
@@ -290,7 +298,7 @@ def detect_multi_pixel_columns(df: pd.DataFrame) -> list[tuple[str, str]]:
             clean = clean_column_name(col)
             # Match current patterns but exclude generic master current if it would cause ambiguity
             # However, if we found no pairs, any current-like column besides master_voltage is a candidate
-            if any(re.match(p, clean) for p in CURRENT_PATTERNS) or "pixel" in clean:
+            if any(re.search(p, clean) for p in CURRENT_PATTERNS) or "pixel" in clean:
                 potential_currents.append(col)
         
         # If we have multiple currents, map them all to master_voltage
