@@ -20,13 +20,15 @@ Helios Core is optimized for Render using the included `render.yaml` Blueprint. 
 1. Push your code to GitHub.
 2. In Render, click **New +** and select **Blueprint**.
 3. Connect your repository.
-4. Render will automatically configure:
-   - **Backend**: FastAPI service with a 1GB persistent disk mounted at `/app/data`.
-   - **Frontend**: Next.js service connected to the backend.
+4. Render will automatically configure the Backend and Frontend.
 
-### 2. Persistent Disk
+### ⚠️ Free Tier Persistence
 
-Render will create a disk named `helios-data`. This is where `helios_core.db` and the `raw/` data folder are stored. Unlike Vercel, this data **will not be deleted** when the service redeploys.
+On the Render Free tier, the local SQLite database and `data/` folder are **ephemeral**. This means:
+
+- Data is saved while the app is running.
+- **Data is deleted** whenever the app "sleeps" (after 15 mins of inactivity) or redeploys.
+- **Recommendation**: Always export your analysis results (CSV/Supplement bundle) before closing the app.
 
 ---
 
