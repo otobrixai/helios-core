@@ -38,6 +38,7 @@ export default function Home() {
 
   const [mode, setMode] = useState<StatelessMode>("Exploration");
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   // Constants State (Locked in Reference Mode)
   const [constants, setConstants] = useState({
@@ -166,7 +167,7 @@ export default function Home() {
   };
 
   return (
-    <main className="h-screen w-screen flex flex-col bg-(--bg-primary) overflow-hidden">
+    <main className="h-screen w-full flex flex-col bg-(--bg-primary) overflow-hidden">
       {/* Global Header */}
       <header className="h-14 border-b border-(--border-default) px-6 flex items-center justify-between bg-(--bg-secondary) shrink-0 z-20">
         <div className="flex items-center gap-4">
@@ -182,6 +183,22 @@ export default function Home() {
         <div className="flex items-center gap-6">
           <ModeToggle mode={mode} onModeChange={setMode} />
           
+          <button
+            onClick={() => setShowDiagnostics(!showDiagnostics)}
+            className={`
+              flex items-center gap-2 px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all
+              ${showDiagnostics 
+                ? "bg-(--accent-cyan)/20 text-(--accent-cyan) border border-(--accent-cyan)/40" 
+                : "bg-(--bg-tertiary) text-(--text-secondary) border border-(--border-default) hover:border-(--text-muted)"
+              }
+            `}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            Physics Audit
+          </button>
+
           {mode === "Reference" && (
             <div className="flex items-center gap-2 px-3 py-1 bg-(--accent-gold)/10 border border-(--accent-gold)/30 rounded-full animate-pulse-slow">
               <span className="w-2 h-2 rounded-full bg-(--accent-gold)" />
@@ -248,7 +265,7 @@ export default function Home() {
         </aside>
 
         {/* Column 2: Visual Analysis Hub */}
-        <main className="flex-1 min-w-[500px] bg-(--bg-primary) border-r border-(--border-default) relative z-0 overflow-y-auto">
+        <main className="flex-1 min-w-[350px] bg-(--bg-primary) border-r border-(--border-default) relative z-0 overflow-y-auto">
           <AnalysisHub
             measurement={selectedMeasurement}
             result={analysisResult}
@@ -259,7 +276,7 @@ export default function Home() {
         </main>
 
         {/* Column 3: Parameter Inspector */}
-        <aside className="w-80 bg-(--bg-secondary) shrink-0 z-10 shadow-xl overflow-hidden">
+        <aside className="w-72 xl:w-80 bg-(--bg-secondary) shrink-0 z-10 shadow-xl overflow-hidden flex flex-col">
           <ParameterInspector
             result={analysisResult}
             mode={mode}
@@ -273,14 +290,19 @@ export default function Home() {
         </aside>
 
         {/* Column 4: Diagnostic Sidebar (Physics Audit) */}
-        <div className="w-80 shrink-0">
-          <ProgressiveDiagnostics 
-            diagnosticReport={analysisResult?.diagnostics || null}
-            mode={mode}
-            isLoading={isLoading}
-            onViewReport={() => setIsAuditModalOpen(true)}
-            onDownloadAudit={handleExportBundle}
-          />
+        <div className={`
+          overflow-hidden transition-all duration-300 ease-in-out border-l border-(--border-default)
+          ${showDiagnostics ? "w-80 opacity-100" : "w-0 opacity-0 border-none"}
+        `}>
+          <div className="w-80">
+            <ProgressiveDiagnostics 
+              diagnosticReport={analysisResult?.diagnostics || null}
+              mode={mode}
+              isLoading={isLoading}
+              onViewReport={() => setIsAuditModalOpen(true)}
+              onDownloadAudit={handleExportBundle}
+            />
+          </div>
         </div>
 
         {/* Audit Log Modal Overlay */}
