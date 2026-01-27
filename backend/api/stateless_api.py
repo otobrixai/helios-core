@@ -84,11 +84,12 @@ async def process_file_stateless(file: UploadFile = File(...)):
                 V = df[v_col].astype(float).values
                 I = df[i_col].astype(float).values
                 
-                # Unit conversion (mA -> A)
-                v_unit = _extract_unit(v_col, "V")
-                i_unit = _extract_unit(i_col, "A")
-                if i_unit.lower() == "ma":
+                # Unit conversion to standard A
+                i_unit = _extract_unit(i_col, "A").lower()
+                if "ma" in i_unit:
                     I = I / 1000.0
+                elif "ua" in i_unit or "µa" in i_unit:
+                    I = I / 1e6
                 
                 measurements_data.append({
                     "device_label": f"{file.filename}_Pixel_{i+1}",
@@ -102,8 +103,12 @@ async def process_file_stateless(file: UploadFile = File(...)):
             V = df[cmap.voltage_column].astype(float).values
             I = df[cmap.current_column].astype(float).values
             
-            if cmap.current_unit.lower() == "ma":
+            # Unit conversion to standard A
+            i_unit = cmap.current_unit.lower()
+            if "ma" in i_unit:
                 I = I / 1000.0
+            elif "ua" in i_unit or "µa" in i_unit:
+                I = I / 1e6
                 
             measurements_data.append({
                 "device_label": file.filename.split('.')[0],

@@ -144,6 +144,7 @@ export default function Home() {
           n_ideality: data.n_ideality
         } : undefined,
         resultHash: data.result_hash,
+        fit_current: data.fit_current,
         errorMessage: data.error_message,
         timestamp: data.timestamp,
         diagnostics: data.diagnostics

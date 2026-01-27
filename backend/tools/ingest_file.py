@@ -39,33 +39,16 @@ from backend.tools.manage_storage import (
 # =============================================================================
 
 VOLTAGE_PATTERNS = [
-    r"^voltage\s*\(?v\)?$",
-    r"^v\s*\(?v\)?$",
-    r"^voltage_v$",
-    r"^v_v$",
-    r"^v_?oc$",
-    r"^bias$",
-    r"^voltage$",
-    r"^v$",
+    r"voltage",
+    r"bias",
+    r"\bv\b",
 ]
 
 CURRENT_PATTERNS = [
-    r"^current_density\s*\(?a/cm2\)?$",
-    r"^j\s*\(?a/cm2\)?$",
-    r"^current_density\s*\(?ma/cm2\)?$",
-    r"^j\s*\(?ma/cm2\)?$",
-    r"^current_density$",
-    r"^j$",
-    r"^current\s*\(?a\)?$",
-    r"^i\s*\(?a\)?$",
-    r"^current\s*\(?ma\)?$",
-    r"^i\s*\(?ma\)?$",
-    r"^current_a$",
-    r"^current_ma$",
-    r"^i_a$",
-    r"^i_ma$",
-    r"^current$",
-    r"^i$",
+    r"current_density",
+    r"current",
+    r"\bj\b",
+    r"\bi\b",
 ]
 
 TIME_PATTERNS = [
@@ -129,7 +112,9 @@ def detect_hardware_profile(
 
 def clean_column_name(name: str) -> str:
     """Standardize column names for pattern matching."""
-    return name.lower().strip().replace(" ", "_").replace("(", "").replace(")", "")
+    # Remove units and junk
+    name = re.sub(r"\(.*?\)", "", name)
+    return name.lower().strip().replace(" ", "_")
 
 
 def detect_time_column(df: pd.DataFrame) -> Optional[str]:
@@ -189,9 +174,15 @@ def detect_column_mapping(df: pd.DataFrame) -> ColumnMap:
     
     # Per SOP §8: Fail loudly if mandatory columns missing
     if voltage_col is None:
-        raise ValueError(
-            f"Voltage column not detected. Available columns: {original_columns}"
-        )
+        # Fallback for 2-column headerless files: Assume [V, I]
+        if len(original_columns) == 2:
+            voltage_col = original_columns[0]
+            current_col = original_columns[1]
+        else:
+            raise ValueError(
+                f"Voltage column not detected. Available columns: {original_columns}"
+            )
+    
     if current_col is None:
         raise ValueError(
             f"Current column not detected. Available columns: {original_columns}"
@@ -234,77 +225,50 @@ def _extract_unit(column_name: str, default: str) -> str:
 def detect_multi_pixel_columns(df: pd.DataFrame) -> list[tuple[str, str]]:
     """
     Detect multiple IV curves in a single file.
-    
-    Returns:
-        List of (voltage_col, current_col) tuples for each pixel.
-    
-    Per SOP: Each pixel becomes a separate Measurement with shared metadata.
+    Returns: List of (voltage_col, current_col) tuples.
     """
     columns = list(df.columns)
+    v_cols = []
+    i_cols = []
     
-    # Common patterns for multi-pixel files
-    pixel_patterns = [
-        (r"v_?(\d+|[a-z])", r"i_?(\d+|[a-z])"),
-        (r"voltage_?(\d+|[a-z])", r"current_?(\d+|[a-z])"),
-        (r"voltage_?(\d+|[a-z])", r"current_density_?(\d+|[a-z])"),
-        (r"pixel_?(\d+|[a-z])_v", r"pixel_?(\d+|[a-z])_i"),
-        (r"pixel_?(\d+|[a-z])_voltage", r"pixel_?(\d+|[a-z])_current"),
-        (r"pixel_?(\d+|[a-z])_voltage", r"pixel_?(\d+|[a-z])_current_density"),
-    ]
-    
+    for col in columns:
+        clean = clean_column_name(col)
+        if any(re.search(p, clean) for p in VOLTAGE_PATTERNS):
+            v_cols.append(col)
+        elif any(re.search(p, clean) for p in CURRENT_PATTERNS) or "pixel" in clean.lower():
+            i_cols.append(col)
+            
+    if not v_cols or not i_cols:
+        return []
+        
     pixels = []
     
-    for v_pattern, i_pattern in pixel_patterns:
-        v_cols = {}
-        i_cols = {}
-        
-        for col in columns:
-            col_lower = col.lower()
-            v_match = re.match(v_pattern, col_lower, re.IGNORECASE)
-            i_match = re.match(i_pattern, col_lower, re.IGNORECASE)
-            
-            if v_match:
-                v_cols[v_match.group(1)] = col
-            elif i_match:
-                i_cols[i_match.group(1)] = col
-        
-    # Match V/I pairs
-    for key in v_cols:
-        if key in i_cols:
-            pixels.append((v_cols[key], i_cols[key]))
-    
-    if pixels:
+    # CASE 1: Single Voltage, Multiple Currents (Shared Voltage)
+    if len(v_cols) == 1:
+        for i_col in i_cols:
+            pixels.append((v_cols[0], i_col))
         return pixels
-
-    # Strategy 2: Shared Voltage (Voltage, I_A, I_B...)
-    # Check for Master Voltage first
-    master_voltage = None
-    for pattern in VOLTAGE_PATTERNS:
-        for col in columns:
-            if re.match(pattern, clean_column_name(col)):
-                master_voltage = col
-                break
-        if master_voltage:
-            break
-            
-    if master_voltage:
-        # Find all columns that look like pixel currents
-        # Heuristic: Contains "current" or "i" and is NOT the master voltage
-        # and has some suffix
-        potential_currents = []
-        for col in columns:
-            if col == master_voltage:
-                continue
-            clean = clean_column_name(col)
-            # Match current patterns but exclude generic master current if it would cause ambiguity
-            # However, if we found no pairs, any current-like column besides master_voltage is a candidate
-            if any(re.search(p, clean) for p in CURRENT_PATTERNS) or "pixel" in clean:
-                potential_currents.append(col)
         
-        # If we have multiple currents, map them all to master_voltage
-        if len(potential_currents) >= 1:
-            for i_col in potential_currents:
-                pixels.append((master_voltage, i_col))
+    # CASE 2: Multiple Voltages, Multiple Currents (Paired by suffix)
+    # Try to extract pixel indices
+    def get_suffix(name):
+        match = re.search(r"(\d+|[a-z])$", clean_column_name(name))
+        return match.group(1) if match else None
+        
+    v_map = {get_suffix(v): v for v in v_cols if get_suffix(v)}
+    i_map = {get_suffix(i): i for i in i_cols if get_suffix(i)}
+    
+    # Direct matches
+    for suffix, v_col in v_map.items():
+        if suffix in i_map:
+            pixels.append((v_col, i_map[suffix]))
+            
+    # Fallback: if we still have unpaired currents and one main voltage (that didn't have suffix)
+    master_v = next((v for v in v_cols if not get_suffix(v)), v_cols[0])
+    paired_i = [p[1] for p in pixels]
+    for i_col in i_cols:
+        if i_col not in paired_i:
+            pixels.append((master_v, i_col))
             
     return pixels
 
@@ -471,6 +435,13 @@ def _detect_encoding(content: bytes) -> str:
     return "utf-8"  # Default fallback
 
 
+def _is_numeric(s):
+    try:
+        float(str(s))
+        return True
+    except (ValueError, TypeError):
+        return False
+
 def _parse_to_dataframe(
     content: bytes, 
     filename: str, 
@@ -490,6 +461,18 @@ def _parse_to_dataframe(
                     skipinitialspace=True,
                 )
                 if len(df.columns) >= 2:
+                    # Check if the header itself looks like numeric data
+                    if all(_is_numeric(c) for c in df.columns):
+                        # Re-read with no header
+                        df = pd.read_csv(
+                            BytesIO(content),
+                            sep=sep,
+                            encoding=encoding,
+                            skipinitialspace=True,
+                            header=None
+                        )
+                        # Name them generically
+                        df.columns = [str(i) for i in range(len(df.columns))]
                     return df
             except Exception:
                 continue

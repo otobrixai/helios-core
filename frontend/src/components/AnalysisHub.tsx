@@ -55,13 +55,16 @@ export function AnalysisHub({
     return voltage.map((v, i) => {
       const j_measured = (current[i] / area) * 1000;
       const fit_j = result?.fit_current ? (result.fit_current[i] / area) * 1000 : undefined;
+      
+      const safe_j = isFinite(j_measured) ? j_measured : 0;
+      const safe_fit_j = fit_j !== undefined && isFinite(fit_j) ? fit_j : undefined;
 
       return {
-        voltage: v,
-        current: j_measured, // Display as mA/cm2
-        fit_current: fit_j,
-        power: v * j_measured,
-        residual: fit_j !== undefined ? j_measured - fit_j : undefined,
+        voltage: isFinite(v) ? v : 0,
+        current: safe_j,
+        fit_current: safe_fit_j,
+        power: isFinite(v * safe_j) ? v * safe_j : 0,
+        residual: (safe_j !== undefined && safe_fit_j !== undefined) ? safe_j - safe_fit_j : undefined,
       };
     });
   }, [voltage, current, result, constants.area]);
@@ -214,19 +217,23 @@ export function AnalysisHub({
                   <XAxis 
                     dataKey="voltage" 
                     type="number" 
+                    domain={['auto', 'auto']}
                     hide 
                   />
                   <YAxis 
                     type="number"
                     tick={{ fill: "var(--text-muted)", fontSize: 8 }}
                     axisLine={{ stroke: "var(--border-default)" }}
-                    label={{ value: "ΔJ", angle: -90, position: "insideLeft", fill: "var(--text-secondary)", fontSize: 8 }}
+                    domain={['auto', 'auto']}
+                    label={{ value: "ΔJ (mA/cm²)", angle: -90, position: "insideLeft", fill: "var(--text-secondary)", fontSize: 8 }}
                   />
                   <Tooltip 
                     contentStyle={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-default)", fontSize: "10px" }}
+                    itemStyle={{ color: accentColor }}
                   />
-                  <ReferenceLine y={0} stroke="var(--text-muted)" strokeWidth={1} />
+                  <ReferenceLine y={0} stroke="var(--text-muted)" strokeWidth={1} strokeDasharray="3 3" />
                   <Scatter 
+                    name="Fit Residual"
                     data={displayData} 
                     fill={accentColor} 
                     line={false}
