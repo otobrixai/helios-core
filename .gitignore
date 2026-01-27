@@ -40,3 +40,9 @@ gemini.md
 progress.md
 task_plan.md
 .vercel
+
+# Data & Test Files
+*.csv
+*.txt
+!requirements.txt
+!reproduce_*.py
