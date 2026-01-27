@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { getApiUrl } from "../lib/api-config";
 
 interface ExportOptions {
   includeAudit: boolean;
@@ -22,7 +23,7 @@ export const useExportIntegrity = (analysisId: string | null) => {
 
       try {
         // Step 1: Fresh calculation (never cached)
-        const response = await fetch(`/api/export/${analysisId}/generate`, {
+        const response = await fetch(getApiUrl(`/api/export/${analysisId}/generate`), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -39,7 +40,7 @@ export const useExportIntegrity = (analysisId: string | null) => {
           response.headers.get("Content-Length") || "0",
         );
         let receivedLength = 0;
-        let chunks: Uint8Array[] = [];
+        const chunks: Uint8Array[] = [];
 
         if (reader) {
           while (true) {
@@ -101,7 +102,7 @@ export const useExportIntegrity = (analysisId: string | null) => {
       async (hash: string) => {
         if (!analysisId) return false;
         // Verify exported file matches hash
-        const response = await fetch(`/api/export/${analysisId}/verify`, {
+        const response = await fetch(getApiUrl(`/api/export/${analysisId}/verify`), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ hash }),

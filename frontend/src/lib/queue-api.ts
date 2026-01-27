@@ -18,13 +18,13 @@ import {
   DailyStatistics
 } from '@/types/queue';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/queue';
+import { API_BASE_URL } from './api-config';
 
 class QueueApiClient {
   private baseUrl: string;
 
   constructor(baseUrl: string = API_BASE_URL) {
-    this.baseUrl = baseUrl;
+    this.baseUrl = `${baseUrl}/api/queue`;
   }
 
   private async request<T>(

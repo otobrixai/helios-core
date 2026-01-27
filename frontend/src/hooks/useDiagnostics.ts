@@ -1,6 +1,7 @@
 // frontend/src/hooks/useDiagnostics.ts
 import { useState, useEffect, useCallback } from 'react';
 import { FullDiagnosticReport } from '../types/diagnostics';
+import { getApiUrl } from '../lib/api-config';
 
 export const useDiagnostics = (analysisId: string | null) => {
   const [diagnostics, setDiagnostics] = useState<FullDiagnosticReport | null>(null);
@@ -18,7 +19,7 @@ export const useDiagnostics = (analysisId: string | null) => {
     setError(null);
     
     try {
-      const response = await fetch(`/api/diagnostics/${analysisId}`);
+      const response = await fetch(getApiUrl(`/api/diagnostics/${analysisId}`));
       
       if (!response.ok) {
         throw new Error(`Failed to fetch diagnostics: ${response.statusText}`);

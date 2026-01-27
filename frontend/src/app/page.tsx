@@ -18,6 +18,7 @@ import { AuditLogModal } from "@/components/AuditLogModal";
 
 import { ProgressiveDiagnostics } from "@/components/ProgressiveDiagnostics";
 import { PerformanceShield } from "@/components/PerformanceShield";
+import { getApiUrl } from "@/lib/api-config";
 
 
 
@@ -57,7 +58,7 @@ export default function Home() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch("/api/stateless/process", {
+      const response = await fetch(getApiUrl("/api/stateless/process"), {
         method: "POST",
         body: formData,
       });
@@ -106,7 +107,7 @@ export default function Home() {
 
     setLoading(true);
     try {
-      const response = await fetch("/api/stateless/analyze", {
+      const response = await fetch(getApiUrl("/api/stateless/analyze"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
