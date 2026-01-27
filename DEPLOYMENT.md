@@ -4,33 +4,29 @@ This guide details the process for deploying Helios Core to production environme
 
 ## 🏗 Stack Overview
 
-- **Frontend**: Next.js (Static Export or Node.js)
+- **Frontend**: Next.js 16 (Node.js Server)
 - **Backend**: FastAPI (Python 3.10+)
-- **Database**: SQLite (Local persistence)
+- **Database**: SQLite (Persistent Disk required)
 - **Engine**: pvlib/scipy/numpy (Deterministic Numerical context)
 
 ---
 
-## 🚀 Option 1: Vercel (Recommended)
+## 🚀 Option 1: Render.com (Recommended)
 
-Helios Core is designed for seamless deployment on Vercel using the Mono-repo pattern.
+Helios Core is optimized for Render using the included `render.yaml` Blueprint. This ensures the database and raw files persist across restarts.
 
-### 1. Prerequisites
+### 1. Simple Deploy
 
-- A GitHub/GitLab repository with the project.
-- A Vercel account.
+1. Push your code to GitHub.
+2. In Render, click **New +** and select **Blueprint**.
+3. Connect your repository.
+4. Render will automatically configure:
+   - **Backend**: FastAPI service with a 1GB persistent disk mounted at `/app/data`.
+   - **Frontend**: Next.js service connected to the backend.
 
-### 2. Configuration
+### 2. Persistent Disk
 
-- **Build Command (Frontend)**: `npm run build`
-- **Output Directory**: `.next`
-- **Root Directory**: `frontend`
-- **Environment Variables**:
-  - `NEXT_PUBLIC_API_URL`: The URL of your deployed backend.
-
-### 3. Serverless Functions (Python)
-
-Vercel supports Python Serverless functions. However, because Helios Core handles heavy numerical computation and file persistence in `data/`, a **Render** or **Railway** backend is recommended for the API layer.
+Render will create a disk named `helios-data`. This is where `helios_core.db` and the `raw/` data folder are stored. Unlike Vercel, this data **will not be deleted** when the service redeploys.
 
 ---
 
