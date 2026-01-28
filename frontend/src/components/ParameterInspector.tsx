@@ -120,18 +120,6 @@ export function ParameterInspector({
             isReference={isReference}
             tooltipEquation="\eta = \frac{P_{mpp}}{P_{in}}"
           />
-          <MetricCard
-            label="Series Res."
-            value={metrics?.r_s}
-            unit="Ω·cm²"
-            isReference={isReference}
-          />
-          <MetricCard
-            label="Shunt Res."
-            value={metrics?.r_sh}
-            unit="Ω·cm²"
-            isReference={isReference}
-          />
         </div>
       </div>
 
@@ -157,7 +145,7 @@ export function ParameterInspector({
                 <td className="py-2 px-3 text-(--text-secondary)">Rs</td>
                 <td className="py-2 px-3 text-right font-mono text-xs">
                   {metrics?.r_s !== undefined 
-                    ? (metrics.r_s > 1000 ? metrics.r_s.toExponential(2) : metrics.r_s.toFixed(2)) 
+                    ? (metrics.r_s > 1000 ? metrics.r_s.toExponential(4) : metrics.r_s.toFixed(4)) 
                     : "—"}
                 </td>
                 <td className="py-2 px-3 text-right text-(--text-muted) text-[10px]">Ω·cm²</td>
@@ -168,7 +156,7 @@ export function ParameterInspector({
                 <td className="py-2 px-3 text-(--text-secondary)">Rsh</td>
                 <td className="py-2 px-3 text-right font-mono text-xs">
                   {metrics?.r_sh !== undefined 
-                    ? (metrics.r_sh > 10000 ? metrics.r_sh.toExponential(2) : metrics.r_sh.toFixed(0)) 
+                    ? (metrics.r_sh > 10000 ? metrics.r_sh.toExponential(4) : metrics.r_sh.toFixed(2)) 
                     : "—"}
                 </td>
                 <td className="py-2 px-3 text-right text-(--text-muted) text-[10px]">Ω·cm²</td>
@@ -178,7 +166,7 @@ export function ParameterInspector({
               <tr className={`bg-(--bg-card) ${metrics && metrics.n_ideality > 2.0 ? "bg-(--accent-amber)/5" : ""}`}>
                 <td className="py-2 px-3 text-(--text-secondary)">n</td>
                 <td className={`py-2 px-3 text-right font-mono ${metrics && metrics.n_ideality > 2.0 ? "text-(--accent-amber) font-bold" : ""}`}>
-                  {metrics?.n_ideality !== undefined ? metrics.n_ideality.toFixed(3) : "—"}
+                  {metrics?.n_ideality !== undefined ? metrics.n_ideality.toFixed(4) : "—"}
                 </td>
                 <td className="py-2 px-3 text-right">
                   {metrics && metrics.n_ideality > 2.0 ? (

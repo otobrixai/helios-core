@@ -71,6 +71,11 @@ export default function Home() {
 
       const data = await response.json();
       
+      // Update global session constants if area detected in file
+      if (data.detected_area) {
+        setConstants(prev => ({ ...prev, area: data.detected_area }));
+      }
+
       data.measurements.forEach((m: {
         device_label: string;
         voltage: number[];
@@ -87,7 +92,7 @@ export default function Home() {
           current: m.current,
           vColumn: m.v_column,
           iColumn: m.i_column,
-          areaCm2: constants.area,
+          areaCm2: data.detected_area ?? constants.area,
           temperatureK: constants.temperature,
           timestamp: new Date().toISOString()
         };

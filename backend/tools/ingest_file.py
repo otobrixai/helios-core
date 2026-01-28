@@ -349,34 +349,10 @@ def ingest_file(
     
     # If metadata area is default (1.0), try to extract it from the file content
     if metadata.cell_area_cm2 == 1.0:
-        try:
-            # Look for common area patterns in the first 2000 chars
-            area_patterns = [
-                r"device\s*area\s*[:=\t,]\s*([\d\.]+)",
-                r"area\s*\(?cm2\)?\s*[:=\t,]\s*([\d\.]+)",
-            ]
-            for pattern in area_patterns:
-                match = re.search(pattern, content_str[:2000], re.IGNORECASE)
-                if match:
-                    metadata.cell_area_cm2 = float(match.group(1))
-                    print(f"[Ingest] Extracted device area from header: {metadata.cell_area_cm2} cm2")
-                    break
-            
-            # Special case for tabular metadata like SA71_light__1.dat
-            lines = content_str.split('\n')
-            if len(lines) > 2:
-                headers = [h.strip().lower() for h in re.split(r'[\t,]', lines[0])]
-                if "device area" in headers:
-                    idx = headers.index("device area")
-                    values = re.split(r'[\t,]', lines[1])
-                    if len(values) > idx:
-                        try:
-                            metadata.cell_area_cm2 = float(values[idx].strip())
-                            print(f"[Ingest] Extracted device area from tabular header: {metadata.cell_area_cm2} cm2")
-                        except ValueError:
-                            pass
-        except Exception as e:
-            print(f"[Ingest] Warning: Failed to extract area from header: {e}")
+        detected_area = extract_area_from_header(content_str)
+        if detected_area is not None:
+            metadata.cell_area_cm2 = detected_area
+            print(f"[Ingest] Applied detected area: {metadata.cell_area_cm2} cm2")
 
     # Parse into DataFrame
     df = _parse_to_dataframe(file_content, filename, encoding)
@@ -458,6 +434,45 @@ def ingest_file(
         measurements.append(measurement)
     
     return import_record, measurements
+
+
+def extract_area_from_header(content_str: str) -> Optional[float]:
+    """
+    Attempt to extract device area from file header content.
+    Looks for common patterns and tabular metadata.
+    """
+    try:
+        # Look for common area patterns in the first 4000 chars
+        area_patterns = [
+            r"device\s*area\s*[:=\t,]\s*([\d\.]+)",
+            r"area\s*\(?cm2\)?\s*[:=\t,]\s*([\d\.]+)",
+            r"area\s*\(?cm\^2\)?\s*[:=\t,]\s*([\d\.]+)",
+        ]
+        for pattern in area_patterns:
+            match = re.search(pattern, content_str[:4000], re.IGNORECASE)
+            if match:
+                area = float(match.group(1))
+                return area
+        
+        # Special case for tabular metadata like SA71_light__1.dat
+        lines = content_str.split('\n')
+        if len(lines) > 2:
+            # Check the first few lines for "device area"
+            for i in range(min(5, len(lines))):
+                headers = [h.strip().lower() for h in re.split(r'[\t,]', lines[i])]
+                if "device area" in headers:
+                    idx = headers.index("device area")
+                    if i + 1 < len(lines):
+                        values = re.split(r'[\t,]', lines[i+1])
+                        if len(values) > idx:
+                            try:
+                                return float(values[idx].strip())
+                            except ValueError:
+                                pass
+    except Exception as e:
+        print(f"[Ingest] Warning: Failed to extract area in helper: {e}")
+    
+    return None
 
 
 def _detect_encoding(content: bytes) -> str:

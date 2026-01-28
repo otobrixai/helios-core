@@ -11,6 +11,7 @@ import io
 import hashlib
 import json
 import numpy as np
+import re
 from datetime import datetime
 from uuid import uuid4
 
@@ -23,7 +24,12 @@ from backend.tools.ingest_file import (
     detect_time_column,
     _extract_unit
 )
-from backend.tools.solve_iv_curve import analyze_measurement
+from backend.tools.solve_iv_curve import (
+    analyze_measurement, 
+    one_diode_equation, 
+    two_diode_equation
+)
+from backend.services.diagnostic_service import DiagnosticReport
 from backend.models.entities import (
     AnalysisMode, 
     ModelType, 
@@ -37,6 +43,40 @@ from backend.models.entities import (
 
 router = APIRouter()
 
+def extract_area_from_header(content_str: str) -> Optional[float]:
+    """
+    Attempt to extract device area from file header content.
+    """
+    try:
+        # Look for common area patterns in the first 4000 chars
+        area_patterns = [
+            r"device\s*area\s*[:=\t,]\s*([\d\.]+)",
+            r"area\s*\(?cm2\)?\s*[:=\t,]\s*([\d\.]+)",
+            r"area\s*\(?cm\^2\)?\s*[:=\t,]\s*([\d\.]+)",
+        ]
+        for pattern in area_patterns:
+            match = re.search(pattern, content_str[:4000], re.IGNORECASE)
+            if match:
+                return float(match.group(1))
+        
+        # Special case for tabular metadata
+        lines = content_str.split('\n')
+        if len(lines) > 2:
+            for i in range(min(5, len(lines))):
+                headers = [h.strip().lower() for h in re.split(r'[\t,]', lines[i])]
+                if "device area" in headers:
+                    idx = headers.index("device area")
+                    if i + 1 < len(lines):
+                        values = re.split(r'[\t,]', lines[i+1])
+                        if len(values) > idx:
+                            try:
+                                return float(values[idx].strip())
+                            except ValueError:
+                                pass
+    except Exception as e:
+        print(f"[Stateless] Warning: Failed to extract area locally: {e}")
+    return None
+
 class StatelessProcessResponse(BaseModel):
     filename: str
     file_hash: str
@@ -44,6 +84,7 @@ class StatelessProcessResponse(BaseModel):
     encoding: str
     low_confidence: bool
     measurements: List[dict]
+    detected_area: Optional[float] = None
 
 class StatelessAnalyzeRequest(BaseModel):
     voltage: List[float]
@@ -78,6 +119,7 @@ async def process_file_stateless(file: UploadFile = File(...)):
         multi_pixels = detect_multi_pixel_columns(df)
         
         measurements_data = []
+        detected_area = None  # Initialize before conditional branches
         
         if multi_pixels:
             for i, (v_col, i_col) in enumerate(multi_pixels):
@@ -99,16 +141,26 @@ async def process_file_stateless(file: UploadFile = File(...)):
                     "i_column": i_col
                 })
         else:
+            # Detect Area from header
+            detected_area = extract_area_from_header(content_str)
+            area_to_use = detected_area if detected_area is not None else 1.0
+
             cmap = detect_column_mapping(df)
             V = df[cmap.voltage_column].astype(float).values
             I = df[cmap.current_column].astype(float).values
             
             # Unit conversion to standard A
             i_unit = cmap.current_unit.lower()
+            is_density = "/cm" in i_unit or "cm^2" in i_unit
+
             if "ma" in i_unit:
                 I = I / 1000.0
             elif "ua" in i_unit or "µa" in i_unit:
                 I = I / 1e6
+            
+            # Density handling
+            if is_density:
+                I = I * area_to_use
                 
             measurements_data.append({
                 "device_label": file.filename.split('.')[0],
@@ -124,14 +176,15 @@ async def process_file_stateless(file: UploadFile = File(...)):
             hardware_profile=hardware_profile.value,
             encoding=encoding,
             low_confidence=low_confidence,
-            measurements=measurements_data
+            measurements=measurements_data,
+            detected_area=detected_area
         )
 
     except Exception as e:
+        import traceback
+        print(f"[Stateless] Error: {e}")
+        print(traceback.format_exc())
         raise HTTPException(status_code=400, detail=f"Processing failed: {str(e)}")
-
-from backend.services.diagnostic_service import DiagnosticReport
-from backend.tools.solve_iv_curve import analyze_measurement, one_diode_equation
 
 @router.post("/analyze")
 async def analyze_stateless(request: StatelessAnalyzeRequest):
@@ -175,7 +228,6 @@ async def analyze_stateless(request: StatelessAnalyzeRequest):
             try:
                 # Reconstruct fitted curve for residuals based on model type
                 if analysis.solver_config.model_type == ModelType.TWO_DIODE:
-                    from backend.tools.solve_iv_curve import two_diode_equation
                     I_fitted = two_diode_equation(
                         V=V,
                         I_ph=p.i_ph or 0.0,

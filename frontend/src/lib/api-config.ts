@@ -5,7 +5,7 @@
  * Determines the base URL for backend communication.
  */
 
-const API_ROOT = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_ROOT = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
 // Ensure no trailing slash
 export const API_BASE_URL = API_ROOT.endsWith('/') 
