@@ -22,7 +22,7 @@ export function RecombinationAnalysis({ result }: RecombinationAnalysisProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <h3 className="text-xs font-bold text-(--text-secondary) uppercase tracking-widest px-1">
+      <h3 className="text-xs font-bold text-(--text-secondary) uppercase tracking-widest px-2">
         Recombination Diagnostics
       </h3>
 
@@ -47,7 +47,7 @@ export function RecombinationAnalysis({ result }: RecombinationAnalysisProps) {
       </div>
 
       <div className="space-y-2">
-        <div className="flex justify-between text-[10px] text-(--text-muted) uppercase font-bold px-1">
+        <div className="flex justify-between text-[10px] text-(--text-muted) uppercase font-bold px-2">
           <span>Mechanism Map</span>
           <span>SRH Intensity</span>
         </div>
@@ -57,7 +57,7 @@ export function RecombinationAnalysis({ result }: RecombinationAnalysisProps) {
           <div className="h-full bg-(--accent-gold)/40 w-[20%]" title="SRH Quasi-neutral" />
           <div className="h-full bg-red-500/40 w-[20%]" title="Tunneling" />
         </div>
-        <div className="flex justify-between text-[9px] text-(--text-muted) px-1">
+        <div className="flex justify-between text-[9px] text-(--text-muted) px-2">
           <span>n=1</span>
           <span>n=1.5</span>
           <span>n=2.0</span>

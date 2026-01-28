@@ -273,14 +273,14 @@ export function AnalysisHub({
             </div>
           </>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full p-2">
-            <div className="lg:col-span-2 h-[450px]">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full p-4 md:p-6 lg:p-8">
+            <div className="lg:col-span-2 h-[480px]">
               <DarkJVAnalyzer measurement={measurement} result={result} />
             </div>
-            <div className="min-h-[400px]">
+            <div className="min-h-[420px]">
               <IdealityDashboard result={result} />
             </div>
-            <div className="min-h-[400px]">
+            <div className="min-h-[420px]">
               <RecombinationAnalysis result={result} />
             </div>
           </div>

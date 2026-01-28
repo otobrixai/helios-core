@@ -29,14 +29,14 @@ export function FileUploader({ onUpload, isUploading }: FileUploaderProps) {
   );
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5 px-1">
       {/* Main Drop Zone */}
       <div
         onDrop={handleDrop}
         onDragOver={(e) => e.preventDefault()}
         className={`
-          relative border-2 border-dashed rounded-lg p-4 md:p-6 text-center
-          transition-all duration-200 cursor-pointer min-h-[120px] md:min-h-[140px]
+          relative border-2 border-dashed rounded-lg p-5 md:p-6 text-center
+          transition-all duration-200 cursor-pointer min-h-[130px] md:min-h-[150px]
           flex items-center justify-center
           ${
             isUploading
@@ -59,10 +59,10 @@ export function FileUploader({ onUpload, isUploading }: FileUploaderProps) {
             <span className="text-xs md:text-sm text-(--accent-cyan)">Processing...</span>
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-2 px-2">
+          <div className="flex flex-col items-center gap-3 px-4">
             {/* Upload Icon - Responsive sizing */}
             <svg
-              className="w-6 h-6 md:w-8 md:h-8 text-(--text-muted)"
+              className="w-6 h-6 md:w-7 md:h-7 text-(--text-muted)/80"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -74,27 +74,32 @@ export function FileUploader({ onUpload, isUploading }: FileUploaderProps) {
                 d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
               />
             </svg>
-            <span className="text-xs md:text-sm text-(--text-secondary) text-center">
-              Drop IV file or <span className="text-(--accent-cyan)">browse</span>
-            </span>
-            <span className="text-[10px] md:text-xs text-(--text-muted) text-center">
-              CSV, TXT, XLS, DAT, DATA, ASC supported
-            </span>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs md:text-sm text-(--text-secondary) font-medium leading-tight">
+                Drop IV file or <span className="text-(--accent-cyan)">browse</span>
+              </span>
+              <span className="text-[10px] md:text-xs text-(--text-muted) leading-tight">
+                CSV, TXT, DAT, ASC
+              </span>
+            </div>
           </div>
         )}
       </div>
 
       {/* Type Selector - Responsive layout */}
       <div className="flex flex-col gap-3">
-        <div className="text-[10px] font-semibold text-(--text-muted) uppercase tracking-wider">
-          Measurement Type
+        <div className="text-[10px] font-bold text-(--text-muted) uppercase tracking-widest px-1">
+          Analysis Context
         </div>
         
-        <div className="flex flex-wrap items-center justify-start gap-2 md:gap-3 bg-(--bg-secondary)/80 backdrop-blur-sm border border-(--border-default) rounded-lg p-2 md:p-3">
+        <div className="flex flex-wrap items-center justify-start gap-1.5 md:gap-2 bg-(--bg-secondary)/60 backdrop-blur-sm border border-(--border-default) rounded-lg p-1.5 md:p-2">
           {(['light', 'dark', 'suns_voc'] as const).map((t) => (
             <label 
               key={t} 
-              className="flex items-center gap-1.5 cursor-pointer shrink-0 px-2 py-1.5 md:px-3 md:py-2 rounded-md transition-colors hover:bg-(--bg-tertiary)"
+              className={`
+                flex items-center gap-2 cursor-pointer shrink-0 px-2.5 py-1.5 rounded-md transition-all
+                ${type === t ? 'bg-(--accent-cyan)/10 border border-(--accent-cyan)/30' : 'border border-transparent hover:bg-(--bg-tertiary)'}
+              `}
               onClick={(e) => e.stopPropagation()}
             >
               <input 
@@ -102,7 +107,7 @@ export function FileUploader({ onUpload, isUploading }: FileUploaderProps) {
                 name="meas-type" 
                 checked={type === t} 
                 onChange={() => setType(t)}
-                className="w-3 h-3 md:w-3.5 md:h-3.5 accent-(--accent-cyan) shrink-0"
+                className="w-3 h-3 accent-(--accent-cyan) shrink-0"
               />
               <span className={`text-[10px] md:text-[11px] font-bold uppercase tracking-wider whitespace-nowrap ${type === t ? 'text-(--accent-cyan)' : 'text-(--text-muted)'}`}>
                 {t.replace('_', ' ')}

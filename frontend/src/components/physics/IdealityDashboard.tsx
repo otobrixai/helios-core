@@ -34,13 +34,13 @@ export function IdealityDashboard({ result }: IdealityDashboardProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <h3 className="text-xs font-bold text-(--text-secondary) uppercase tracking-widest px-1">
+      <h3 className="text-xs font-bold text-(--text-secondary) uppercase tracking-widest px-2">
         Ideality Factor Dashboard
       </h3>
 
       <div className="grid grid-cols-1 gap-3">
         {methods.map((m) => (
-          <div key={m.name} className="glass-card p-3 flex flex-col gap-1 border-l-2" 
+          <div key={m.name} className="glass-card p-4 flex flex-col gap-2 border-l-2" 
                style={{ borderLeftColor: m.value ? (m.value > 2 ? 'var(--accent-gold)' : 'var(--accent-cyan)') : 'var(--border-default)' }}>
             <div className="flex justify-between items-center">
               <span className="text-[11px] font-bold text-(--text-primary)">{m.name}</span>
@@ -52,13 +52,13 @@ export function IdealityDashboard({ result }: IdealityDashboardProps) {
                 {m.accuracy}
               </span>
             </div>
-            <div className="flex items-baseline gap-2">
+            <div className="flex items-baseline gap-2 px-1">
               <span className="text-2xl font-mono font-bold">
                 {m.value ? m.value.toFixed(3) : "---"}
               </span>
               <span className="text-[10px] text-(--text-muted)">dimensionless</span>
             </div>
-            <p className="text-[10px] text-(--text-muted) italic">{m.desc}</p>
+            <p className="text-[10px] text-(--text-muted) italic px-1">{m.desc}</p>
           </div>
         ))}
       </div>
