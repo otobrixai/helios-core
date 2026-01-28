@@ -48,7 +48,7 @@ export async function exportSessionBundle(
 }
 
 function generateResultsSummary(analyses: AnalysisSessionData[]): string {
-  const headers = "AnalysisID,Timestamp,Status,Jsc(mA/cm2),Voc(V),FF(%),PCE(%),Rs(ohm.cm2),Rsh(ohm.cm2),n";
+  const headers = "AnalysisID,Timestamp,Status,Jsc(mA/cm2),Voc(V),FF(%),PCE(%),Rs(ohm.cm2),Rsh(ohm.cm2),n,n_slope,n_dark,i_0_dark,r_s_dark,r_sh_dark";
   const rows = analyses.map(a => {
     if (a.status !== 'VALID' || !a.results) {
       return `${a.id},${a.timestamp},${a.status},,,,,,,`;
@@ -64,7 +64,12 @@ function generateResultsSummary(analyses: AnalysisSessionData[]): string {
       r.pce?.toFixed(2),
       r.r_s?.toFixed(4),
       r.r_sh?.toFixed(2),
-      r.n_ideality?.toFixed(4)
+      r.n_ideality?.toFixed(4),
+      r.n_slope?.toFixed(4),
+      r.n_dark?.toFixed(4),
+      r.i_0_dark?.toExponential(2),
+      r.r_s_dark?.toFixed(4),
+      r.r_sh_dark?.toFixed(2),
     ].join(',');
   });
   return [headers, ...rows].join('\n');
@@ -124,6 +129,9 @@ EXPECTED = {
     "r_s": ${params?.r_s},
     "r_sh": ${params?.r_sh},
     "n": ${params?.n_ideality},
+    "n_slope": ${params?.n_slope},
+    "n_dark": ${params?.n_dark},
+    "i_0_dark": ${params?.i_0_dark},
     "result_hash": "${a.resultHash}"
 }
 

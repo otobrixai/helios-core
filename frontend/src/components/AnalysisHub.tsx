@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { 
   LineChart,
   Line,
@@ -21,6 +21,9 @@ import {
   MeasurementSessionData, 
   AnalysisSessionData 
 } from "@/types/stateless";
+import { DarkJVAnalyzer } from "./physics/DarkJVAnalyzer";
+import { IdealityDashboard } from "./physics/IdealityDashboard";
+import { RecombinationAnalysis } from "./physics/RecombinationAnalysis";
 
 interface AnalysisHubProps {
   measurement: MeasurementSessionData | null;
@@ -31,8 +34,6 @@ interface AnalysisHubProps {
   isLoading?: boolean;
 }
 
-
-
 export function AnalysisHub({
   measurement,
   result,
@@ -41,6 +42,7 @@ export function AnalysisHub({
   onAnalyze,
   isLoading = false,
 }: AnalysisHubProps) {
+  const [activeTab, setActiveTab] = useState<'standard' | 'physics'>('standard');
   const isReference = mode === "Reference";
   const accentColor = isReference ? "#ffc107" : "#00d9ff";
 
@@ -108,150 +110,184 @@ export function AnalysisHub({
           </div>
         </div>
 
-        <button
-          onClick={() => onAnalyze(constants.area, constants.temperature)}
-          disabled={isLoading}
-          className={`
-            px-4 py-1.5 text-xs font-semibold rounded uppercase tracking-wide transition-all duration-200
-            ${isLoading ? "opacity-50 cursor-wait" : ""}
-            ${
-              isReference
-                ? "bg-(--accent-gold) text-black hover:bg-(--accent-amber)"
-                : "bg-(--accent-cyan) text-black hover:bg-[#00b8d4]"
-            }
-          `}
-        >
-          {isLoading ? "Processing..." : result ? "Re-Analyze" : "Run Analysis"}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* View Toggle */}
+          <div className="flex bg-(--bg-tertiary) p-1 rounded-md border border-(--border-default) mr-4">
+            <button 
+              onClick={() => setActiveTab('standard')}
+              className={`px-3 py-1 text-[10px] font-bold tracking-wider rounded transition-all ${activeTab === 'standard' ? 'bg-(--bg-card) text-(--accent-cyan) shadow-sm' : 'text-(--text-muted) hover:text-(--text-secondary)'}`}
+            >
+              STANDARD IV
+            </button>
+            <button 
+              onClick={() => setActiveTab('physics')}
+              className={`px-3 py-1 text-[10px] font-bold tracking-wider rounded transition-all ${activeTab === 'physics' ? 'bg-(--bg-card) text-(--accent-gold) shadow-sm' : 'text-(--text-muted) hover:text-(--text-secondary)'}`}
+            >
+              PHYSICS LAB
+            </button>
+          </div>
+
+          <button
+            onClick={() => onAnalyze(constants.area, constants.temperature)}
+            disabled={isLoading}
+            className={`
+              px-4 py-1.5 text-xs font-semibold rounded uppercase tracking-wide transition-all duration-200
+              ${isLoading ? "opacity-50 cursor-wait" : ""}
+              ${
+                isReference
+                  ? "bg-(--accent-gold) text-black hover:bg-(--accent-amber)"
+                  : "bg-(--accent-cyan) text-black hover:bg-[#00b8d4]"
+              }
+            `}
+          >
+            {isLoading ? "Processing..." : result ? "Re-Analyze" : "Run Analysis"}
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 p-4 lg:p-6 flex flex-col gap-4 overflow-y-auto">
-        {/* Master IV Plot */}
-        <div className="flex-2 glass-card p-4 min-h-[450px] relative">
-          <h3 className="absolute top-3 left-4 text-[10px] font-semibold text-(--text-secondary) uppercase tracking-wider z-10">
-            Current Density vs Voltage
-          </h3>
-          
-          <div className="w-full h-full min-h-[400px]">
-            <ScientificSkeleton type="chart" mode={mode} hasData={!isLoading || displayData.length > 0} />
-            <PlotIntegrityBadge metadata={metadata} />
-            
-            <GPUChartContainer id="iv-master" priority="high">
-              <ResponsiveContainer width="100%" height="100%" minHeight={300}>
-                <LineChart data={displayData} margin={{ top: 30, right: 30, left: 10, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-muted)" vertical={false} />
-                <XAxis 
-                  dataKey="voltage" 
-                  type="number"
-                  domain={['auto', 'auto']}
-                  tick={{ fill: "var(--text-muted)", fontSize: 9 }}
-                  axisLine={{ stroke: "var(--border-default)" }}
-                  label={{ value: "Voltage (V)", position: "bottom", offset: 0, fill: "var(--text-secondary)", fontSize: 10 }}
-                />
-                <YAxis 
-                  yAxisId="current"
-                  tick={{ fill: "var(--text-muted)", fontSize: 9 }}
-                  axisLine={{ stroke: "var(--border-default)" }}
-                  label={{ value: "J (mA/cm²)", angle: -90, position: "insideLeft", fill: "var(--text-secondary)", fontSize: 10 }}
-                />
-                <YAxis 
-                  yAxisId="power" 
-                  orientation="right"
-                  tick={{ fill: "var(--text-muted)", fontSize: 9 }}
-                  axisLine={{ stroke: "var(--border-default)" }}
-                  label={{ value: "P (mW/cm²)", angle: 90, position: "insideRight", fill: "var(--text-secondary)", fontSize: 10 }}
-                />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-default)", fontSize: "11px" }}
-                  itemStyle={{ color: "var(--text-primary)" }}
-                />
+        {activeTab === 'standard' ? (
+          <>
+            {/* Master IV Plot */}
+            <div className="flex-2 glass-card p-4 min-h-[450px] relative">
+              <h3 className="absolute top-3 left-4 text-[10px] font-semibold text-(--text-secondary) uppercase tracking-wider z-10">
+                Current Density vs Voltage
+              </h3>
+              
+              <div className="w-full h-full min-h-[400px]">
+                <ScientificSkeleton type="chart" mode={mode} hasData={!isLoading || displayData.length > 0} />
+                <PlotIntegrityBadge metadata={metadata} />
                 
-                {/* Raw Data (Dots) */}
-                <Line 
-                  yAxisId="current" type="monotone" dataKey="current" 
-                  stroke={accentColor} strokeWidth={0} dot={{ r: 1.5, fill: accentColor }} 
-                  activeDot={{ r: 3, stroke: "none", fill: accentColor }}
-                  name="Measured J"
-                  connectNulls
-                />
-                
-                {/* Fit Data placeholder - fit is complex in stateless session */}
-                {result?.results && (
-                  <Line 
-                    yAxisId="current" type="monotone" dataKey="fit_current" 
-                    stroke="var(--accent-green)" strokeWidth={2} dot={false}
-                    name="Physics Fit"
-                    connectNulls
-                  />
-                )}
+                <GPUChartContainer id="iv-master" priority="high">
+                  <ResponsiveContainer width="100%" height="100%" minHeight={300}>
+                    <LineChart data={displayData} margin={{ top: 30, right: 30, left: 10, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border-muted)" vertical={false} />
+                      <XAxis 
+                        dataKey="voltage" 
+                        type="number"
+                        domain={['auto', 'auto']}
+                        tick={{ fill: "var(--text-muted)", fontSize: 9 }}
+                        axisLine={{ stroke: "var(--border-default)" }}
+                        label={{ value: "Voltage (V)", position: "bottom", offset: 0, fill: "var(--text-secondary)", fontSize: 10 }}
+                      />
+                      <YAxis 
+                        yAxisId="current"
+                        tick={{ fill: "var(--text-muted)", fontSize: 9 }}
+                        axisLine={{ stroke: "var(--border-default)" }}
+                        label={{ value: "J (mA/cm²)", angle: -90, position: "insideLeft", fill: "var(--text-secondary)", fontSize: 10 }}
+                      />
+                      <YAxis 
+                        yAxisId="power" 
+                        orientation="right"
+                        tick={{ fill: "var(--text-muted)", fontSize: 9 }}
+                        axisLine={{ stroke: "var(--border-default)" }}
+                        label={{ value: "P (mW/cm²)", angle: 90, position: "insideRight", fill: "var(--text-secondary)", fontSize: 10 }}
+                      />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-default)", fontSize: "11px" }}
+                        itemStyle={{ color: "var(--text-primary)" }}
+                      />
+                      
+                      {/* Raw Data (Dots) */}
+                      <Line 
+                        yAxisId="current" type="monotone" dataKey="current" 
+                        stroke={accentColor} strokeWidth={0} dot={{ r: 1.5, fill: accentColor }} 
+                        activeDot={{ r: 3, stroke: "none", fill: accentColor }}
+                        name="Measured J"
+                        connectNulls
+                      />
+                      
+                      {/* Fit Data */}
+                      {result?.results && (
+                        <Line 
+                          yAxisId="current" type="monotone" dataKey="fit_current" 
+                          stroke="var(--accent-green)" strokeWidth={2} dot={false}
+                          name="Physics Fit"
+                          connectNulls
+                        />
+                      )}
 
-                <Line 
-                  yAxisId="power" type="monotone" dataKey="power" 
-                  stroke="var(--text-muted)" strokeWidth={1} dot={false} strokeDasharray="3 3"
-                  opacity={0.3}
-                  name="Measured Power"
-                />
-                
-                {result?.results && (
-                  <ReferenceLine 
-                    yAxisId="current" x={(result.results.v_oc || 0) * 0.8} 
-                    stroke="var(--text-muted)" strokeDasharray="3 3" 
-                    label={{ value: "MPP", fill: "var(--text-muted)", fontSize: 9, position: "top" }} 
-                  />
-                )}
-              </LineChart>
-            </ResponsiveContainer>
-            </GPUChartContainer>
-          </div>
-        </div>
-
-        <div className="flex-1 min-h-[220px] glass-card p-4 relative">
-          <h3 className="absolute top-2 left-4 text-[10px] font-semibold text-(--text-secondary) uppercase tracking-wider z-10">
-            Fit Residuals (ΔJ)
-          </h3>
-          <div className="w-full h-full min-h-[180px]">
-            {result ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <ScatterChart margin={{ top: 20, right: 30, left: 10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-muted)" vertical={false} />
-                  <XAxis 
-                    dataKey="voltage" 
-                    type="number" 
-                    domain={['auto', 'auto']}
-                    hide 
-                  />
-                  <YAxis 
-                    type="number"
-                    tick={{ fill: "var(--text-muted)", fontSize: 8 }}
-                    axisLine={{ stroke: "var(--border-default)" }}
-                    domain={['auto', 'auto']}
-                    label={{ value: "ΔJ (mA/cm²)", angle: -90, position: "insideLeft", fill: "var(--text-secondary)", fontSize: 8 }}
-                  />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-default)", fontSize: "10px" }}
-                    itemStyle={{ color: accentColor }}
-                  />
-                  <ReferenceLine y={0} stroke="var(--text-muted)" strokeWidth={1} strokeDasharray="3 3" />
-                  <Scatter 
-                    name="Fit Residual"
-                    data={displayData} 
-                    fill={accentColor} 
-                    line={false}
-                    shape="circle"
-                    dataKey="residual"
-                  />
-                </ScatterChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center opacity-30 text-[10px] uppercase tracking-widest font-bold">
-                Run Analysis for Residuals
+                      <Line 
+                        yAxisId="power" type="monotone" dataKey="power" 
+                        stroke="var(--text-muted)" strokeWidth={1} dot={false} strokeDasharray="3 3"
+                        opacity={0.3}
+                        name="Measured Power"
+                      />
+                      
+                      {result?.results && (
+                        <ReferenceLine 
+                          yAxisId="current" x={(result.results.v_oc || 0) * 0.8} 
+                          stroke="var(--text-muted)" strokeDasharray="3 3" 
+                          label={{ value: "MPP", fill: "var(--text-muted)", fontSize: 9, position: "top" }} 
+                        />
+                      )}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </GPUChartContainer>
               </div>
-            )}
+            </div>
+
+            <div className="flex-1 min-h-[220px] glass-card p-4 relative">
+              <h3 className="absolute top-2 left-4 text-[10px] font-semibold text-(--text-secondary) uppercase tracking-wider z-10">
+                Fit Residuals (ΔJ)
+              </h3>
+              <div className="w-full h-full min-h-[180px]">
+                {result ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ScatterChart margin={{ top: 20, right: 30, left: 10, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border-muted)" vertical={false} />
+                      <XAxis 
+                        dataKey="voltage" 
+                        type="number" 
+                        domain={['auto', 'auto']}
+                        hide 
+                      />
+                      <YAxis 
+                        type="number"
+                        tick={{ fill: "var(--text-muted)", fontSize: 8 }}
+                        axisLine={{ stroke: "var(--border-default)" }}
+                        domain={['auto', 'auto']}
+                        label={{ value: "ΔJ (mA/cm²)", angle: -90, position: "insideLeft", fill: "var(--text-secondary)", fontSize: 8 }}
+                      />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-default)", fontSize: "10px" }}
+                        itemStyle={{ color: accentColor }}
+                      />
+                      <ReferenceLine y={0} stroke="var(--text-muted)" strokeWidth={1} strokeDasharray="3 3" />
+                      <Scatter 
+                        name="Fit Residual"
+                        data={displayData} 
+                        fill={accentColor} 
+                        line={false}
+                        shape="circle"
+                        dataKey="residual"
+                      />
+                    </ScatterChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center opacity-30 text-[10px] uppercase tracking-widest font-bold">
+                    Run Analysis for Residuals
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full p-2">
+            <div className="lg:col-span-2 h-[450px]">
+              <DarkJVAnalyzer measurement={measurement} result={result} />
+            </div>
+            <div className="min-h-[400px]">
+              <IdealityDashboard result={result} />
+            </div>
+            <div className="min-h-[400px]">
+              <RecombinationAnalysis result={result} />
+            </div>
           </div>
-        </div>
+        )}
 
         <div className={`
-          h-12 border-t border-(--border-default) flex items-center px-4 gap-4
+          h-12 border-t border-(--border-default) flex items-center px-4 gap-4 mt-auto
           ${isReference ? "opacity-50 pointer-events-none grayscale" : ""}
         `}>
           <div className="flex-1 h-1.5 bg-(--bg-tertiary) rounded-full overflow-hidden">

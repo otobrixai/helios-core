@@ -1,6 +1,4 @@
 """
-Helios Core — Analysis API Routes
-
 POST /analyze endpoint for IV curve analysis.
 """
 
@@ -16,7 +14,8 @@ from backend.tools.manage_storage import (
 )
 from backend.tools.ingest_file import extract_iv_data
 from backend.tools.solve_iv_curve import analyze_measurement
-from backend.models.entities import AnalysisMode, ModelType, AnalysisStatus
+from backend.models.entities import AnalysisMode, ModelType, AnalysisStatus, MeasurementType
+from backend.services.physics_service import extract_ideality_from_slope
 
 
 router = APIRouter()
@@ -43,6 +42,12 @@ class AnalyzeResponse(BaseModel):
     r_s: Optional[float] = None
     r_sh: Optional[float] = None
     n_ideality: Optional[float] = None
+    # Fundamental Physics
+    n_slope: Optional[float] = None
+    n_dark: Optional[float] = None
+    i_0_dark: Optional[float] = None
+    r_s_dark: Optional[float] = None
+    r_sh_dark: Optional[float] = None
     result_hash: Optional[str] = None
     error_message: Optional[str] = None
 
@@ -116,6 +121,19 @@ async def analyze_endpoint(request: AnalyzeRequest):
             response.r_s = analysis.parameters.r_s
             response.r_sh = analysis.parameters.r_sh
             response.n_ideality = analysis.parameters.n_ideality
+            
+            # Extract additional physics with light-bias compensation if applicable
+            is_light = measurement.metadata.measurement_type == MeasurementType.LIGHT
+            response.n_slope = extract_ideality_from_slope(
+                V, I, 
+                temp_c=measurement.metadata.temperature_c,
+                is_light=is_light,
+                j_sc=analysis.parameters.j_sc
+            )
+            response.n_dark = analysis.parameters.n_dark
+            response.i_0_dark = analysis.parameters.i_0_dark
+            response.r_s_dark = analysis.parameters.r_s_dark
+            response.r_sh_dark = analysis.parameters.r_sh_dark
         
         return response
         

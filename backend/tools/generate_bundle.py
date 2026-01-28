@@ -94,6 +94,7 @@ def _generate_audit_json(analysis: Analysis, measurement: Measurement) -> dict:
             "cell_area_cm2": measurement.metadata.cell_area_cm2,
             "temperature_c": measurement.metadata.temperature_c,
             "irradiance_suns": measurement.metadata.irradiance_suns,
+            "measurement_type": measurement.metadata.measurement_type.value,
         },
         "results": analysis.parameters.model_dump() if analysis.parameters else None,
         "determinism_contract": {
@@ -170,6 +171,8 @@ EXPECTED = {{
     "v_oc": {params.v_oc if params else 'None'},
     "ff": {params.ff if params else 'None'},
     "pce": {params.pce if params else 'None'},
+    "n_dark": {params.n_dark if params else 'None'},
+    "i_0_dark": {params.i_0_dark if params else 'None'},
     "result_hash": "{analysis.result_hash}",
 }}
 
@@ -230,6 +233,18 @@ def _generate_results_csv(analysis: Analysis) -> str:
     
     if params.residual_rms is not None:
         lines.append(f"Residual_RMS,{params.residual_rms:.6e},A")
+    
+    # Physics Metrics
+    if params.n_dark is not None:
+        lines.append(f"n_dark,{params.n_dark:.4f},")
+    if params.i_0_dark is not None:
+        lines.append(f"I0_dark,{params.i_0_dark:.4e},A")
+    if params.r_s_dark is not None:
+        lines.append(f"Rs_dark,{params.r_s_dark:.4f},ohm.cm2")
+    if params.r_sh_dark is not None:
+        lines.append(f"Rsh_dark,{params.r_sh_dark:.2f},ohm.cm2")
+    if params.delta_n is not None:
+        lines.append(f"delta_n,{params.delta_n:.4f},")
     
     return "\n".join(lines) + "\n"
 

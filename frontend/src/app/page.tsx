@@ -6,7 +6,8 @@ import { exportSessionBundle } from "@/lib/export-utils";
 import { 
   AnalysisMode as StatelessMode, 
   MeasurementSessionData,
-  AnalysisSessionData
+  AnalysisSessionData,
+  MeasurementType
 } from "@/types/stateless";
 
 import { BatchManager } from "@/components/BatchManager";
@@ -52,7 +53,7 @@ export default function Home() {
 
 
 
-  const handleFileUpload = async (file: File) => {
+  const handleFileUpload = async (file: File, type: MeasurementType = "light") => {
     setLoading(true);
     setError(null);
     try {
@@ -94,6 +95,7 @@ export default function Home() {
           iColumn: m.i_column,
           areaCm2: data.detected_area ?? constants.area,
           temperatureK: constants.temperature,
+          measurementType: type,
           timestamp: new Date().toISOString()
         };
         addMeasurement(measurement);
@@ -124,6 +126,7 @@ export default function Home() {
           model_type: "OneDiode",
           area_cm2: area ?? constants.area,
           temperature_k: temp ?? constants.temperature,
+          measurement_type: selectedMeasurement.measurementType
         }),
       });
 
@@ -147,7 +150,12 @@ export default function Home() {
           pce: data.pce,
           r_s: data.r_s,
           r_sh: data.r_sh,
-          n_ideality: data.n_ideality
+          n_ideality: data.n_ideality,
+          n_slope: data.n_slope,
+          n_dark: data.n_dark,
+          i_0_dark: data.i_0_dark,
+          r_s_dark: data.r_s_dark,
+          r_sh_dark: data.r_sh_dark,
         } : undefined,
         resultHash: data.result_hash,
         fit_current: data.fit_current,

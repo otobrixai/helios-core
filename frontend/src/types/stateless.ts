@@ -7,6 +7,7 @@
 export type AnalysisMode = 'Exploration' | 'Reference';
 export type ModelType = 'OneDiode' | 'TwoDiode';
 export type AnalysisStatus = 'VALID' | 'INVALID' | 'FAILED';
+export type MeasurementType = 'light' | 'dark' | 'suns_voc';
 
 export interface MeasurementSessionData {
   id: string;
@@ -19,6 +20,7 @@ export interface MeasurementSessionData {
   iColumn: string;
   areaCm2: number;
   temperatureK: number;
+  measurementType: MeasurementType;
   timestamp: string;
 }
 
@@ -30,6 +32,12 @@ export interface AnalysisResult {
   r_s: number;
   r_sh: number;
   n_ideality: number;
+  // Fundamental Physics
+  n_slope?: number;
+  n_dark?: number;
+  i_0_dark?: number;
+  r_s_dark?: number;
+  r_sh_dark?: number;
 }
 
 import { FullDiagnosticReport } from './diagnostics';

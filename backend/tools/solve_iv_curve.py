@@ -28,6 +28,7 @@ from backend.models.entities import (
     AnalysisStatus,
     ExtractedParameters,
     Measurement,
+    MeasurementType,
     ModelType,
     SolverConfig,
 )
@@ -108,8 +109,15 @@ def two_diode_equation(
 # =============================================================================
 
 ONE_DIODE_BOUNDS = [
-    (0.0, 2.0),       # I_ph: Photocurrent (A) — Allow 0 for dark curves
+    (1e-6, 2.0),       # I_ph: Photocurrent (A)
     (1e-18, 1e-3),    # I_0: Saturation current (A)
+    (0.5, 5.0),       # n: Ideality factor
+    (0.0, 1000.0),    # R_s: Series resistance (Ω)
+    (1.0, 1e9),       # R_sh: Shunt resistance (Ω)
+]
+
+DARK_DIODE_BOUNDS = [
+    (1e-20, 1e-3),    # I_0: Saturation current (A)
     (0.5, 5.0),       # n: Ideality factor
     (0.0, 1000.0),    # R_s: Series resistance (Ω)
     (1.0, 1e9),       # R_sh: Shunt resistance (Ω)
@@ -130,29 +138,29 @@ TWO_DIODE_BOUNDS = [
 # OBJECTIVE FUNCTIONS
 # =============================================================================
 
-def _one_diode_residuals(params: np.ndarray, V: np.ndarray, I_measured: np.ndarray) -> np.ndarray:
-    """Residuals for one-diode model fitting."""
+def _one_diode_residuals(params: np.ndarray, V: np.ndarray, I_measured: np.ndarray, sm: float = 1.0) -> np.ndarray:
+    """Residuals for one-diode model fitting with sign multiplier."""
     I_ph, I_0, n, R_s, R_sh = params
     I_model = one_diode_equation(V, I_ph, I_0, n, R_s, R_sh)
-    return I_measured - I_model
+    return I_measured - (sm * I_model)
 
 
-def _two_diode_residuals(params: np.ndarray, V: np.ndarray, I_measured: np.ndarray) -> np.ndarray:
-    """Residuals for two-diode model fitting."""
+def _two_diode_residuals(params: np.ndarray, V: np.ndarray, I_measured: np.ndarray, sm: float = 1.0) -> np.ndarray:
+    """Residuals for two-diode model fitting with sign multiplier."""
     I_ph, I_01, n1, I_02, n2, R_s, R_sh = params
     I_model = two_diode_equation(V, I_ph, I_01, n1, I_02, n2, R_s, R_sh)
-    return I_measured - I_model
+    return I_measured - (sm * I_model)
 
 
-def _one_diode_cost(params: np.ndarray, V: np.ndarray, I_measured: np.ndarray) -> float:
+def _one_diode_cost(params: np.ndarray, V: np.ndarray, I_measured: np.ndarray, sm: float = 1.0) -> float:
     """Sum of squared residuals for DE optimization."""
-    residuals = _one_diode_residuals(params, V, I_measured)
+    residuals = _one_diode_residuals(params, V, I_measured, sm)
     return float(np.sum(residuals**2))
 
 
-def _two_diode_cost(params: np.ndarray, V: np.ndarray, I_measured: np.ndarray) -> float:
+def _two_diode_cost(params: np.ndarray, V: np.ndarray, I_measured: np.ndarray, sm: float = 1.0) -> float:
     """Sum of squared residuals for DE optimization."""
-    residuals = _two_diode_residuals(params, V, I_measured)
+    residuals = _two_diode_residuals(params, V, I_measured, sm)
     return float(np.sum(residuals**2))
 
 
@@ -167,6 +175,7 @@ def solve_iv_curve(
     temperature_c: float,
     mode: AnalysisMode,
     model_type: ModelType = ModelType.ONE_DIODE,
+    measurement_type: MeasurementType = MeasurementType.LIGHT,
     measurement_id: Optional[str] = None,
 ) -> tuple[ExtractedParameters, SolverConfig, str]:
     """
@@ -196,29 +205,43 @@ def solve_iv_curve(
     # Select model and optimization speed
     de_config = EXPLORATION_DE_CONFIG if mode == AnalysisMode.EXPLORATION else DIFFERENTIAL_EVOLUTION_CONFIG
     
-    if model_type == ModelType.ONE_DIODE:
-        bounds = ONE_DIODE_BOUNDS
-        cost_func = lambda p, v, i: np.sum(_one_diode_residuals(p, v, i, T_k)**2)
-        residual_func = lambda p, v, i: _one_diode_residuals(p, v, i, T_k)
-    else:
-        bounds = TWO_DIODE_BOUNDS
-        cost_func = lambda p, v, i: np.sum(_two_diode_residuals(p, v, i, T_k)**2)
-        residual_func = lambda p, v, i: _two_diode_residuals(p, v, i, T_k)
-    
-    # Stage A: Global Optimization
-    print(f"  [DEBUG] Starting Global Opt (Mode: {mode.value})...", flush=True)
-    
     # Per SOP_PHYSICS_ENGINE: Detect sign convention.
     # Solar cell current in the power region (V > 0) is often negative in "sink" convention.
-    # The diode equations assume I is the generated current (positive).
     potential_power_mask = (V > 0) & (V < 0.9 * np.max(V))
     if np.any(potential_power_mask) and np.median(I[potential_power_mask]) < 0:
         print(f"  [DEBUG] Negative current convention detected. Flipping for fitting.", flush=True)
         I_fit = -I
-        sign_multiplier = -1.0
+        sm = -1.0
     else:
         I_fit = I
-        sign_multiplier = 1.0
+        sm = 1.0
+
+    if measurement_type == MeasurementType.DARK:
+        # Specialized Dark Curve Fitting: Force I_ph = 0
+        # Use log10(I_0) for better numerical search (spans 15 orders of magnitude)
+        bounds = [
+            (-20.0, -2.0),    # log10(I_0)
+            (0.5, 5.0),       # n: Ideality factor
+            (0.0, 1000.0),    # R_s: Series resistance (Ω)
+            (1.0, 1e9),       # R_sh: Shunt resistance (Ω)
+        ]
+        
+        def dark_res(p, v, i, tk, s):
+            log_i0, n, rs, rsh = p
+            im = one_diode_equation(v, 0.0, 10**log_i0, n, rs, rsh, tk)
+            # Scale residuals to uA to keep them in O(1) for the solver
+            return (i - (s * im)) * 1e6
+
+        cost_func = lambda p, v, i: np.sum(dark_res(p, v, i, T_k, sm)**2)
+        residual_func = lambda p, v, i: dark_res(p, v, i, T_k, sm)
+    elif model_type == ModelType.ONE_DIODE:
+        bounds = ONE_DIODE_BOUNDS
+        cost_func = lambda p, v, i: _one_diode_cost(p, v, i, sm)
+        residual_func = lambda p, v, i: _one_diode_residuals(p, v, i, sm)
+    else:
+        bounds = TWO_DIODE_BOUNDS
+        cost_func = lambda p, v, i: _two_diode_cost(p, v, i, sm)
+        residual_func = lambda p, v, i: _two_diode_residuals(p, v, i, sm)
 
     de_result = differential_evolution(
         cost_func,
@@ -245,7 +268,11 @@ def solve_iv_curve(
     print(f"  [DEBUG] Local Refinement Done. Success: {lm_result.success}", flush=True)
     
     params = lm_result.x
-    if model_type == ModelType.ONE_DIODE:
+    if measurement_type == MeasurementType.DARK:
+        # Un-log the I_0
+        I_ph, I_0, n, R_s, R_sh = 0.0, 10**params[0], params[1], params[2], params[3]
+        n2 = None
+    elif model_type == ModelType.ONE_DIODE:
         I_ph, I_0, n, R_s, R_sh = params[0], params[1], params[2], params[3], params[4]
         n2 = None
     else:
@@ -313,6 +340,10 @@ def solve_iv_curve(
         n2_ideality=n2,
         i_ph=I_ph,
         i_0=I_0,
+        n_dark=n if measurement_type == MeasurementType.DARK else None,
+        i_0_dark=I_0 if measurement_type == MeasurementType.DARK else None,
+        r_s_dark=R_s * cell_area_cm2 if measurement_type == MeasurementType.DARK else None,
+        r_sh_dark=R_sh * cell_area_cm2 if measurement_type == MeasurementType.DARK else None,
         residual_rms=float(np.sqrt(np.mean(lm_result.fun**2))),
     )
     
@@ -348,6 +379,7 @@ def analyze_measurement(
             temperature_c=measurement.metadata.temperature_c,
             mode=mode,
             model_type=model_type,
+            measurement_type=measurement.metadata.measurement_type,
             measurement_id=str(measurement.id),
         )
         status = AnalysisStatus.VALID

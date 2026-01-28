@@ -1,28 +1,31 @@
 "use client";
 
-import { useCallback } from "react";
+import { useState, useCallback } from "react";
+import { MeasurementType } from "@/types/stateless";
 
 interface FileUploaderProps {
-  onUpload: (file: File) => void;
+  onUpload: (file: File, type: MeasurementType) => void;
   isUploading: boolean;
 }
 
 export function FileUploader({ onUpload, isUploading }: FileUploaderProps) {
+  const [type, setType] = useState<MeasurementType>("light");
+
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
       const file = e.dataTransfer.files[0];
-      if (file) onUpload(file);
+      if (file) onUpload(file, type);
     },
-    [onUpload]
+    [onUpload, type]
   );
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
-      if (file) onUpload(file);
+      if (file) onUpload(file, type);
     },
-    [onUpload]
+    [onUpload, type]
   );
 
   return (
@@ -76,6 +79,24 @@ export function FileUploader({ onUpload, isUploading }: FileUploaderProps) {
           </span>
         </div>
       )}
+
+      {/* Type Selector */}
+      <div className="absolute bottom-0 left-0 right-0 h-8 flex items-center justify-center gap-4 bg-(--bg-secondary)/80 backdrop-blur-sm border-t border-(--border-default) rounded-b-lg pointer-events-auto">
+        {(['light', 'dark', 'suns_voc'] as const).map((t) => (
+          <label key={t} className="flex items-center gap-1.5 cursor-pointer z-10" onClick={(e) => e.stopPropagation()}>
+            <input 
+              type="radio" 
+              name="meas-type" 
+              checked={type === t} 
+              onChange={() => setType(t)}
+              className="w-3 h-3 accent-(--accent-cyan)"
+            />
+            <span className={`text-[10px] font-bold uppercase tracking-wider ${type === t ? 'text-(--accent-cyan)' : 'text-(--text-muted)'}`}>
+              {t.replace('_', '-')}
+            </span>
+          </label>
+        ))}
+      </div>
     </div>
   );
 }

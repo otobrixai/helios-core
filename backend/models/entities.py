@@ -44,6 +44,13 @@ class AnalysisStatus(str, Enum):
     PENDING = "PENDING"
 
 
+class MeasurementType(str, Enum):
+    """Types of measurements for physical analysis."""
+    LIGHT = "light"
+    DARK = "dark"
+    SUNS_VOC = "suns_voc"
+
+
 # =============================================================================
 # COLUMN MAPPING
 # =============================================================================
@@ -88,6 +95,7 @@ class MeasurementMetadata(BaseModel):
     cell_area_cm2: float = 1.0
     temperature_c: float = 25.0
     irradiance_suns: float = 1.0
+    measurement_type: MeasurementType = MeasurementType.LIGHT
 
 
 class Measurement(BaseModel):
@@ -135,6 +143,13 @@ class ExtractedParameters(BaseModel):
     n2_ideality: Optional[float] = None
     i_ph: Optional[float] = None
     i_0: Optional[float] = None
+    # Fundamental Physics additions
+    n_dark: Optional[float] = None
+    n_light: Optional[float] = None
+    i_0_dark: Optional[float] = None
+    r_sh_dark: Optional[float] = None
+    r_s_dark: Optional[float] = None
+    delta_n: Optional[float] = None  # n_light - n_dark
     # Quality metrics
     residual_rms: Optional[float] = None
 

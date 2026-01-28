@@ -38,8 +38,10 @@ from backend.models.entities import (
     ImportRecord, 
     MeasurementMetadata,
     ColumnMap,
-    HardwareProfile
+    HardwareProfile,
+    MeasurementType
 )
+from backend.services.physics_service import extract_ideality_from_slope
 
 router = APIRouter()
 
@@ -94,6 +96,7 @@ class StatelessAnalyzeRequest(BaseModel):
     model_type: str = "OneDiode"
     area_cm2: float = 1.0
     temperature_k: float = 298.15
+    measurement_type: str = "light"
 
 @router.post("/process", response_model=StatelessProcessResponse)
 async def process_file_stateless(file: UploadFile = File(...)):
@@ -196,11 +199,6 @@ async def analyze_stateless(request: StatelessAnalyzeRequest):
         V = np.array(request.voltage, dtype=np.float64)
         I_measured = np.array(request.current, dtype=np.float64)
         
-        # Create a mock measurement object for the solver
-        metadata = MeasurementMetadata(
-            cell_area_cm2=request.area_cm2,
-            temperature_c=request.temperature_k - 273.15
-        )
         
         # Measurement needs an ID, we'll use a random one as it's not persisted
         measurement = Measurement(
@@ -208,7 +206,11 @@ async def analyze_stateless(request: StatelessAnalyzeRequest):
             import_record_id=uuid4(),
             device_label=request.device_label,
             raw_data_path="stateless",
-            metadata=metadata
+            metadata=MeasurementMetadata(
+                cell_area_cm2=request.area_cm2,
+                temperature_c=request.temperature_k - 273.15,
+                measurement_type=MeasurementType(request.measurement_type)
+            )
         )
         
         # Run physics engine
@@ -217,7 +219,7 @@ async def analyze_stateless(request: StatelessAnalyzeRequest):
             V=V,
             I=I_measured,
             mode=AnalysisMode(request.mode),
-            model_type=ModelType(request.model_type)
+            model_type=ModelType(request.model_type),
         )
         
         # Generate Diagnostics
@@ -288,6 +290,17 @@ async def analyze_stateless(request: StatelessAnalyzeRequest):
                 "r_s": analysis.parameters.r_s,
                 "r_sh": analysis.parameters.r_sh,
                 "n_ideality": analysis.parameters.n_ideality,
+                # Physics additions with light-bias compensation
+                "n_slope": extract_ideality_from_slope(
+                    V, I_measured, 
+                    temp_c=request.temperature_k - 273.15,
+                    is_light=request.measurement_type == "light",
+                    j_sc=analysis.parameters.j_sc
+                ),
+                "n_dark": analysis.parameters.n_dark,
+                "i_0_dark": analysis.parameters.i_0_dark,
+                "r_s_dark": analysis.parameters.r_s_dark,
+                "r_sh_dark": analysis.parameters.r_sh_dark,
                 "fit_current": I_fitted.tolist() if I_fitted is not None else None
             })
             
