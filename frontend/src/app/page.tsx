@@ -229,7 +229,7 @@ export default function Home() {
         {/* Column 1: Inventory & Provenance */}
         <aside className="w-64 bg-(--bg-secondary) border-r border-(--border-default) flex flex-col shrink-0">
           <div className="p-3 border-b border-(--border-default)">
-            <h2 className="text-[10px] font-semibold text-(--text-muted) uppercase tracking-wider mb-2">
+            <h2 className="text-[10px] font-semibold text-(--text-muted) uppercase tracking-wider mb-2 px-1">
               Input Source
             </h2>
             <FileUploader onUpload={handleFileUpload} isUploading={isLoading} />
@@ -246,7 +246,7 @@ export default function Home() {
 
           {/* Session Constants Panel */}
           <div className="p-3 border-t border-(--border-default) bg-(--bg-tertiary)">
-            <h3 className="text-[10px] font-semibold text-(--text-muted) uppercase tracking-wider mb-2 flex justify-between">
+            <h3 className="text-[10px] font-semibold text-(--text-muted) uppercase tracking-wider mb-2 flex justify-between px-1">
               Session Constants
               {mode === "Reference" && (
                 <span className="text-(--accent-gold)">🔒</span>
