@@ -16,6 +16,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { FullDiagnosticReport } from '../types/diagnostics';
+import { CitationPanel } from './CitationPanel';
 
 interface DiagnosticSidebarProps {
   diagnosticReport: FullDiagnosticReport | null;
@@ -23,6 +24,8 @@ interface DiagnosticSidebarProps {
   onViewReport?: () => void;
   onDownloadAudit?: () => void;
   isLoading?: boolean;
+  auditId?: string;
+  bibtex?: string;
 }
 
 export const DiagnosticSidebar: React.FC<DiagnosticSidebarProps> = ({ 
@@ -30,7 +33,9 @@ export const DiagnosticSidebar: React.FC<DiagnosticSidebarProps> = ({
   mode,
   onViewReport,
   onDownloadAudit,
-  isLoading
+  isLoading,
+  auditId,
+  bibtex
 }) => {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   
@@ -314,6 +319,11 @@ export const DiagnosticSidebar: React.FC<DiagnosticSidebarProps> = ({
               ))}
             </ul>
           </div>
+        )}
+        
+        {/* Citation Panel */}
+        {auditId && bibtex && (
+          <CitationPanel auditId={auditId} bibtex={bibtex} />
         )}
       </div>
       

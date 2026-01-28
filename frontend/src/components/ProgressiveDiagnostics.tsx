@@ -11,6 +11,8 @@ interface ProgressiveDiagnosticsProps {
   onViewReport?: () => void;
   onDownloadAudit?: () => void;
   isLoading?: boolean;
+  auditId?: string;
+  bibtex?: string;
 }
 
 export const ProgressiveDiagnostics: React.FC<ProgressiveDiagnosticsProps> = ({
@@ -18,7 +20,9 @@ export const ProgressiveDiagnostics: React.FC<ProgressiveDiagnosticsProps> = ({
   mode,
   onViewReport,
   onDownloadAudit,
-  isLoading = false
+  isLoading = false,
+  auditId,
+  bibtex
 }) => {
   return (
     <div className="relative h-full flex flex-col">
@@ -29,6 +33,8 @@ export const ProgressiveDiagnostics: React.FC<ProgressiveDiagnosticsProps> = ({
         isLoading={isLoading}
         onViewReport={onViewReport}
         onDownloadAudit={onDownloadAudit}
+        auditId={auditId}
+        bibtex={bibtex}
       />
       {!diagnosticReport && !isLoading && (
         <div className="absolute inset-x-0 bottom-0 p-4 bg-(--bg-secondary) border-t border-(--border-default) text-[10px] text-(--text-muted) italic text-center">

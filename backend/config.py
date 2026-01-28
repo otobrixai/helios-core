@@ -26,6 +26,9 @@ DETERMINISM_ENV_VARS = {
 
 GLOBAL_RNG_SEED = 42
 
+# Public URL for the frontend (used in citations)
+FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "http://localhost:3000")
+
 
 def enforce_determinism() -> None:
     """

@@ -1,6 +1,7 @@
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { MeasurementSessionData, AnalysisSessionData, HeliosSessionExport } from '../types/stateless';
+import { getApiUrl } from './api-config';
 
 export async function exportSessionBundle(
   measurements: MeasurementSessionData[],
@@ -45,6 +46,54 @@ export async function exportSessionBundle(
 
   const content = await zip.generateAsync({ type: 'blob' });
   saveAs(content, `helios-core-session-${timestamp}.zip`);
+}
+
+export async function downloadBackendBundle(analysisId: string) {
+  try {
+    const response = await fetch(getApiUrl(`/api/export/${analysisId}`));
+    if (!response.ok) throw new Error('Export generation failed');
+    
+    const blob = await response.blob();
+    const filename = response.headers.get('content-disposition')?.split('filename=')[1] || `helios_bundle_${analysisId.substring(0, 8)}.zip`;
+    saveAs(blob, filename);
+  } catch (error) {
+    console.error('Download failed:', error);
+    throw error;
+  }
+}
+
+export async function downloadStatelessBackendBundle(
+  measurement: MeasurementSessionData,
+  analysis: AnalysisSessionData
+) {
+  try {
+    const payload = {
+      voltage: measurement.voltage,
+      current: measurement.current,
+      device_label: measurement.deviceLabel,
+      mode: analysis.mode,
+      model_type: analysis.modelType || "OneDiode",
+      area_cm2: measurement.areaCm2,
+      temperature_k: measurement.temperatureK,
+      results: analysis.results || {},
+      result_hash: analysis.resultHash
+    };
+
+    const response = await fetch(getApiUrl('/api/stateless/export-bundle'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) throw new Error('Stateless export generation failed');
+    
+    const blob = await response.blob();
+    const filename = response.headers.get('content-disposition')?.split('filename=')[1] || `helios_stateless_bundle_${measurement.deviceLabel}.zip`;
+    saveAs(blob, filename);
+  } catch (error) {
+    console.error('Download failed:', error);
+    throw error;
+  }
 }
 
 function generateResultsSummary(analyses: AnalysisSessionData[]): string {

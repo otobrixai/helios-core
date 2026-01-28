@@ -32,6 +32,8 @@ export interface AnalysisResult {
   r_s: number;
   r_sh: number;
   n_ideality: number;
+  i_ph?: number;
+  i_0?: number;
   // Fundamental Physics
   n_slope?: number;
   n_dark?: number;
@@ -53,7 +55,11 @@ export interface AnalysisSessionData {
   resultHash?: string;
   errorMessage?: string;
   timestamp: string;
+  errorMessage?: string;
+  timestamp: string;
   diagnostics?: FullDiagnosticReport | null;
+  auditId?: string;
+  bibtex?: string;
 }
 
 export interface HeliosSessionExport {

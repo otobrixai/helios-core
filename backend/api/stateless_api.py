@@ -3,17 +3,23 @@ Helios Core — Stateless API Routes
 For session-based, zero-DB deployments.
 """
 
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional, List
 import pandas as pd
 import io
+import os
+import shutil
 import hashlib
 import json
 import numpy as np
 import re
 from datetime import datetime
 from uuid import uuid4
+from pathlib import Path
+
+from backend.tools.generate_bundle import generate_supplementary_bundle
 
 from backend.tools.ingest_file import (
     _detect_encoding, 
@@ -39,11 +45,26 @@ from backend.models.entities import (
     MeasurementMetadata,
     ColumnMap,
     HardwareProfile,
-    MeasurementType
+    MeasurementType,
+    SolverConfig,
+    ExtractedParameters,
+    Analysis
 )
 from backend.services.physics_service import extract_ideality_from_slope
+from backend.services.citation_service import generate_physics_audit_id, generate_bibtex
 
 router = APIRouter()
+
+class StatelessExportRequest(BaseModel):
+    voltage: List[float]
+    current: List[float]
+    device_label: str
+    mode: str
+    model_type: str = "OneDiode"
+    area_cm2: float
+    temperature_k: float
+    results: dict  # derived parameters
+    result_hash: str
 
 def extract_area_from_header(content_str: str) -> Optional[float]:
     """
@@ -278,7 +299,13 @@ async def analyze_stateless(request: StatelessAnalyzeRequest):
             "result_hash": analysis.result_hash,
             "error_message": analysis.error_message,
             "timestamp": datetime.utcnow().isoformat(),
-            "diagnostics": diagnostic_report
+            "diagnostics": diagnostic_report,
+            "audit_id": generate_physics_audit_id(analysis.solver_config),
+            "bibtex": generate_bibtex(
+                generate_physics_audit_id(analysis.solver_config), 
+                analysis.mode, 
+                str(analysis.id)
+            )
         }
         
         if analysis.parameters:
@@ -290,6 +317,8 @@ async def analyze_stateless(request: StatelessAnalyzeRequest):
                 "r_s": analysis.parameters.r_s,
                 "r_sh": analysis.parameters.r_sh,
                 "n_ideality": analysis.parameters.n_ideality,
+                "i_ph": analysis.parameters.i_ph,
+                "i_0": analysis.parameters.i_0,
                 # Physics additions with light-bias compensation
                 "n_slope": extract_ideality_from_slope(
                     V, I_measured, 
@@ -310,3 +339,107 @@ async def analyze_stateless(request: StatelessAnalyzeRequest):
         import traceback
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+
+@router.post("/export-bundle")
+async def download_bundle_stateless(request: StatelessExportRequest, background_tasks: BackgroundTasks):
+    """
+    Generate a full export bundle (PDF/SVG/LaTeX) from stateless session data.
+    Creates a temporary raw file to satisfy the bundle generator's contract.
+    """
+    try:
+        # 1. Create Transient Entities
+        meas_id = uuid4()
+        ana_id = uuid4()
+        
+        # Write temp raw file
+        temp_dir = Path("temp_stateless_export")
+        temp_dir.mkdir(exist_ok=True)
+        raw_path = temp_dir / f"{request.device_label}_{meas_id}.csv"
+        
+        # Reconstruct CSV content
+        df = pd.DataFrame({"V": request.voltage, "I": request.current})
+        df.to_csv(raw_path, index=False)
+        
+        # Cleanup task
+        def cleanup_files():
+            try:
+                if raw_path.exists(): os.remove(raw_path)
+                # Cleanup zip if needed (handled by FileResponse usually?)
+            except Exception:
+                pass
+        background_tasks.add_task(cleanup_files)
+
+        measurement = Measurement(
+            id=meas_id,
+            import_record_id=uuid4(),
+            device_label=request.device_label,
+            raw_data_path=str(raw_path),
+            metadata=MeasurementMetadata(
+                cell_area_cm2=request.area_cm2,
+                temperature_c=request.temperature_k - 273.15,
+                measurement_type=MeasurementType.LIGHT
+            ),
+            column_map=ColumnMap(
+                voltage_column="V", 
+                current_column="I",
+                voltage_unit="V", 
+                current_unit="A"
+            )
+        )
+        
+        solver_config = SolverConfig(
+            model_type=ModelType(request.model_type),
+            solver_seed=42  # Standard lock
+        )
+        
+        # Reconstruct parameters
+        r = request.results
+        params = ExtractedParameters(
+            j_sc=r.get("j_sc") or 0.0,
+            v_oc=r.get("v_oc") or 0.0,
+            ff=r.get("ff") or 0.0,
+            pce=r.get("pce") or 0.0,
+            r_s=r.get("r_s") or 0.0,
+            r_sh=r.get("r_sh") or 0.0,
+            n_ideality=r.get("n_ideality") or 1.0,
+            i_ph=r.get("i_ph"),
+            i_0=r.get("i_0"),
+            n_dark=r.get("n_dark"),
+            i_0_dark=r.get("i_0_dark"),
+            r_s_dark=r.get("r_s_dark"),
+            r_sh_dark=r.get("r_sh_dark"),
+            delta_n=r.get("n_slope")  # Mapping n_slope to delta_n for report context
+        )
+
+        analysis = Analysis(
+            id=ana_id,
+            measurement_id=meas_id,
+            timestamp=datetime.utcnow(),
+            mode=AnalysisMode(request.mode),
+            status=AnalysisStatus.VALID,
+            solver_config=solver_config,
+            parameters=params,
+            result_hash=request.result_hash
+        )
+
+        # 2. Generate Bundle
+        bundle_path = generate_supplementary_bundle(analysis, measurement)
+        
+        # Add bundle path to cleanup
+        def cleanup_bundle():
+            try:
+                if bundle_path.exists(): os.remove(bundle_path)
+            except: pass
+        background_tasks.add_task(cleanup_bundle)
+
+        return FileResponse(
+            path=bundle_path,
+            media_type="application/zip",
+            filename=f"helios_stateless_bundle_{request.device_label}.zip"
+        )
+        
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")

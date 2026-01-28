@@ -7,15 +7,21 @@ Per FRD §4: Bundle contains PDF, CSV, audit.json, and reproduce_analysis.py.
 
 import json
 import zipfile
+import io
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 from typing import Optional
 
 import numpy as np
+import matplotlib.pyplot as plt
+plt.switch_backend('Agg')
 
 from backend.config import EXPORTS_DIR, GLOBAL_RNG_SEED
 from backend.models.entities import Analysis, Measurement
+from backend.tools.ingest_file import extract_iv_data
+from backend.tools.solve_iv_curve import one_diode_equation, two_diode_equation
+from backend.services.citation_service import generate_physics_audit_id, generate_bibtex
 
 
 def generate_results_csv(analysis: Analysis) -> str:
@@ -34,7 +40,9 @@ def generate_supplementary_bundle(
     - data.csv: Normalized IV data
     - audit.json: Full provenance and configuration
     - reproduce_analysis.py: Standalone reproduction script
-    - (report.pdf: TODO - requires matplotlib backend setup)
+    - report.pdf: Professional IV plot (Vector)
+    - report.svg: Professional IV plot (Scalable)
+    - results.tex: LaTeX formatted results table
     
     Returns:
         Path to generated .zip file
@@ -56,8 +64,31 @@ def generate_supplementary_bundle(
         # 3. Results CSV
         results_csv = _generate_results_csv(analysis)
         zf.writestr("results.csv", results_csv)
+
+        # 4. LaTeX Table
+        latex_table = _generate_latex_table(analysis)
+        zf.writestr("results.tex", latex_table)
         
-        # 4. README
+        # 5. PDF Report
+        pdf_bytes_or_error = _generate_report_pdf(analysis, measurement)
+        if pdf_bytes_or_error:
+            if pdf_bytes_or_error.startswith(b"Error"):
+                 zf.writestr("plot_error.txt", pdf_bytes_or_error)
+            else:
+                 zf.writestr("report.pdf", pdf_bytes_or_error)
+
+        # 6. SVG Report
+        if pdf_bytes_or_error and not pdf_bytes_or_error.startswith(b"Error"):
+            svg_bytes = _generate_report_svg(analysis, measurement)
+            if svg_bytes and not svg_bytes.startswith(b"Error"):
+                zf.writestr("report.svg", svg_bytes)
+        
+        # 7. Citation
+        audit_id = generate_physics_audit_id(analysis.solver_config)
+        bibtex = generate_bibtex(audit_id, analysis.mode, str(analysis.id))
+        zf.writestr("citation.bib", bibtex)
+        
+        # 8. README
         readme = _generate_readme(analysis, measurement)
         zf.writestr("README.md", readme)
     
@@ -76,6 +107,7 @@ def _generate_audit_json(analysis: Analysis, measurement: Measurement) -> dict:
             "mode": analysis.mode.value,
             "status": analysis.status.value,
             "result_hash": analysis.result_hash,
+            "audit_id": generate_physics_audit_id(analysis.solver_config),
         },
         "solver_config": {
             "model_type": analysis.solver_config.model_type.value,
@@ -249,6 +281,107 @@ def _generate_results_csv(analysis: Analysis) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _generate_latex_table(analysis: Analysis) -> str:
+    """Generate LaTeX tabular representation of results."""
+    params = analysis.parameters
+    if not params:
+        return "Error: No parameters found"
+
+    # Map parameters to labels and units
+    rows = [
+        ("Short-Circuit Current Density", "$J_{sc}$", f"{params.j_sc:.4f}", "mA/cm$^2$"),
+        ("Open-Circuit Voltage", "$V_{oc}$", f"{params.v_oc:.4f}", "V"),
+        ("Fill Factor", "FF", f"{params.ff * 100:.2f}", "\\%"),
+        ("Power Conversion Efficiency", "$\\eta$", f"{params.pce:.2f}", "\\%"),
+        ("Series Resistance", "$R_s$", f"{params.r_s:.4f}", "$\\Omega\\cdot$cm$^2$"),
+        ("Shunt Resistance", "$R_{sh}$", f"{params.r_sh:.2f}", "$\\Omega\\cdot$cm$^2$"),
+        ("Ideality Factor", "$n$", f"{params.n_ideality:.4f}", "--"),
+    ]
+
+    latex = [
+        "\\begin{tabular}{llrl}",
+        "\\hline",
+        "Parameter & Symbol & Value & Unit \\\\",
+        "\\hline"
+    ]
+
+    for label, symbol, value, unit in rows:
+        latex.append(f"{label} & {symbol} & {value} & {unit} \\\\")
+
+    latex.extend([
+        "\\hline",
+        "\\end{tabular}"
+    ])
+
+    return "\n".join(latex)
+
+
+def _generate_report_pdf(analysis: Analysis, measurement: Measurement) -> Optional[bytes]:
+    """Generate professional IV plot as PDF bytes."""
+    return _generate_mpl_plot(analysis, measurement, format="pdf")
+
+
+def _generate_report_svg(analysis: Analysis, measurement: Measurement) -> Optional[bytes]:
+    """Generate professional IV plot as SVG bytes."""
+    return _generate_mpl_plot(analysis, measurement, format="svg")
+
+
+def _generate_mpl_plot(analysis: Analysis, measurement: Measurement, format: str) -> Optional[bytes]:
+    """Internal helper to generate matplotlib plots."""
+    try:
+        # Load raw data
+        V, I = extract_iv_data(measurement, measurement.column_map or analysis.solver_config)
+        area = measurement.metadata.cell_area_cm2
+        J = I / area * 1000  # Convert to mA/cm2
+        
+        # Create figure
+        plt.figure(figsize=(6, 5))
+        plt.style.use('bmh')
+        
+        # Plot raw data
+        plt.plot(V, J, 'o', markersize=3, alpha=0.5, label='Experimental', color='#2c3e50')
+        
+        # Plot fit if valid
+        if analysis.parameters:
+            p = analysis.parameters
+            v_fit = np.linspace(min(V), max(V), 200)
+            
+            # Reconstruct model
+            # Note: Solver operates in absolute units (V, A), we convert to (V, mA/cm2)
+            if analysis.solver_config.model_type.value == "OneDiode":
+                i_fit = one_diode_equation(v_fit, p.i_ph, p.i_0, p.n_ideality, p.r_s / area, p.r_sh / area)
+            else:
+                i_fit = two_diode_equation(
+                    v_fit, p.i_ph, p.i_0, p.n_ideality, 
+                    p.i_02 if hasattr(p, 'i_02') else p.i_0, 
+                    p.n2_ideality if p.n2_ideality else 2.0, 
+                    p.r_s / area, p.r_sh / area
+                )
+            
+            j_fit = i_fit / area * 1000
+            plt.plot(v_fit, j_fit, '-', linewidth=2, label='Helios Core Fit', color='#e67e22')
+
+        plt.xlabel('Voltage (V)')
+        plt.ylabel('Current Density (mA/cm²)')
+        plt.title(f'IV Characteristics - {measurement.device_label}')
+        plt.grid(True, alpha=0.3)
+        plt.legend()
+        
+        # Handle zero lines
+        plt.axhline(0, color='black', linewidth=0.5, alpha=0.5)
+        plt.axvline(0, color='black', linewidth=0.5, alpha=0.5)
+
+        # Save to buffer
+        buf = io.BytesIO()
+        plt.savefig(buf, format=format, bbox_inches='tight', dpi=300)
+        plt.close()
+        return buf.getvalue()
+    except Exception as e:
+        import traceback
+        return f"Error generation plot: {str(e)}\n{traceback.format_exc()}".encode('utf-8')
+
+
+
 def _generate_readme(analysis: Analysis, measurement: Measurement) -> str:
     """Generate README for bundle."""
     return f"""# Helios Core Supplementary Bundle
@@ -259,7 +392,11 @@ def _generate_readme(analysis: Analysis, measurement: Measurement) -> str:
 
 ## Contents
 
+- `report.pdf` — Professional IV plot (Vector)
+- `report.svg` — Scalable Vector Graphics for publication
 - `results.csv` — Extracted IV parameters
+- `results.tex` — LaTeX formatted results table
+- `citation.bib` — BibTeX citation for this analysis **NEW**
 - `audit.json` — Complete provenance and solver configuration
 - `reproduce_analysis.py` — Standalone reproduction script
 

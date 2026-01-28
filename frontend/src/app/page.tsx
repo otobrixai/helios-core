@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useHeliosStore } from "@/lib/helios-store";
-import { exportSessionBundle } from "@/lib/export-utils";
+import { exportSessionBundle, downloadStatelessBackendBundle } from "@/lib/export-utils";
 import { 
   AnalysisMode as StatelessMode, 
   MeasurementSessionData,
@@ -151,6 +151,8 @@ export default function Home() {
           r_s: data.r_s,
           r_sh: data.r_sh,
           n_ideality: data.n_ideality,
+          i_ph: data.i_ph,
+          i_0: data.i_0,
           n_slope: data.n_slope,
           n_dark: data.n_dark,
           i_0_dark: data.i_0_dark,
@@ -161,7 +163,9 @@ export default function Home() {
         fit_current: data.fit_current,
         errorMessage: data.error_message,
         timestamp: data.timestamp,
-        diagnostics: data.diagnostics
+        diagnostics: data.diagnostics,
+        auditId: data.audit_id,
+        bibtex: data.bibtex
       };
       
       addAnalysis(analysis);
@@ -176,6 +180,23 @@ export default function Home() {
 
   const handleExportBundle = async () => {
     if (measurements.length === 0) return;
+
+    // In Reference Mode, try to generate the full bundle with PDFs via backend
+    if (mode === "Reference" && currentAnalysisId && currentMeasurementId) {
+      const measurement = measurements.find(m => m.id === currentMeasurementId);
+      const analysis = analyses.find(a => a.id === currentAnalysisId);
+      
+      if (measurement && analysis && analysis.status === 'VALID') {
+        try {
+          await downloadStatelessBackendBundle(measurement, analysis);
+          return;
+        } catch (e) {
+          console.error("Backend export failed, falling back to client-side", e);
+        }
+      }
+    }
+
+    // Default/Fallback: Client-side export
     await exportSessionBundle(measurements, analyses);
   };
 
@@ -314,6 +335,8 @@ export default function Home() {
               isLoading={isLoading}
               onViewReport={() => setIsAuditModalOpen(true)}
               onDownloadAudit={handleExportBundle}
+              auditId={analysisResult?.auditId}
+              bibtex={analysisResult?.bibtex}
             />
           </div>
         </div>
