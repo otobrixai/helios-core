@@ -55,8 +55,6 @@ export interface AnalysisSessionData {
   resultHash?: string;
   errorMessage?: string;
   timestamp: string;
-  errorMessage?: string;
-  timestamp: string;
   diagnostics?: FullDiagnosticReport | null;
   auditId?: string;
   bibtex?: string;
