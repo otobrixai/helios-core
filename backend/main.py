@@ -9,8 +9,9 @@ from backend.config import initialize
 initialize()
 
 # Now safe to import numerical libraries and FastAPI
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 
 app = FastAPI(
     title="Helios Core",
@@ -29,8 +30,11 @@ app.add_middleware(
 
 
 @app.get("/health")
-async def health_check():
-    """Health check endpoint."""
+@app.head("/health")
+async def health_check(request: Request):
+    """Health check endpoint supporting both GET and HEAD."""
+    if request.method == "HEAD":
+        return Response(status_code=200)
     return {"status": "ok", "determinism": "locked"}
     
 
